@@ -13,27 +13,16 @@ struct HomeView: View {
     @Namespace private var namespace
     @Namespace private var namespace2
 
-    @State private var colorScheme: ColorScheme = .light
-    @State private var showSettings = false
-
     @State var text: String = ""
 
+    @State private var showSettings = false
     @State private var timerActive = false
     @State private var timerPaused = false
-
-    @State private var showTimers = false
     @State private var showingChatMenu = false
     @State private var didCopyPrompt = false
 
-    let viewModel = HomeViewModel()
     let timers: [Int] = [300, 600, 900, 1200, 1500, 1800]
-
-    // Initialize with saved theme preference if available
-    init() {
-        // Load saved color scheme preference
-        let savedScheme = UserDefaults.standard.string(forKey: "colorScheme") ?? "light"
-        _colorScheme = State(initialValue: savedScheme == "dark" ? .dark : .light)
-    }
+    let viewModel = HomeViewModel()
 
     var body: some View {
         NavigationStack {
@@ -54,7 +43,6 @@ struct HomeView: View {
                     }
                     .font(.caption)
                     .bold()
-                    .foregroundStyle(Color.secondary)
                 }
 
                 HStack {
@@ -168,13 +156,6 @@ extension HomeView {
 
 // MARK: Subviews
 extension HomeView {
-    var transition: AnyTransition {
-        .asymmetric(
-            insertion: .opacity.combined(with: .move(edge: .top)),
-            removal: .opacity.combined(with: .move(edge: .bottom))
-        )
-    }
-
     func homeBackground() -> some View {
         TimelineView(.animation) { timeline in
             let x = (sin(timeline.date.timeIntervalSince1970) + 1) / 2
