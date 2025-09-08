@@ -13,13 +13,14 @@ struct HomeView: View {
     @Namespace private var namespace
     @Namespace private var namespace2
 
-    @State private var showSettings = false
-    @State private var timerActive = false
-    @State private var timerPaused = false
-    @State private var showingChatMenu = false
-    @State private var didCopyPrompt = false
+    @State private var showMenu: Bool = false
+    @State private var timerActive: Bool = false
+    @State private var timerPaused: Bool = false
+    @State private var showTimeIsUpAlert: Bool = false
+    @State private var showingChatMenu: Bool = false
+    @State private var didCopyPrompt: Bool = false
 
-    let timers: [Int] = [300, 600, 900, 1200, 1500, 1800]
+    let timers: [Int] = [2, 300, 600, 900, 1200, 1500, 1800]
 
     @StateObject var viewModel = HomeViewModel()
 
@@ -27,9 +28,6 @@ struct HomeView: View {
         NavigationStack {
             VStack {
                 textfieldView
-
-                Spacer()
-                    .frame(height: 30)
 
                 if timerActive || timerPaused {
                     HStack {
@@ -42,8 +40,8 @@ struct HomeView: View {
                 }
 
                 HStack {
-                    settingsButtonView {
-                        showSettings = true
+                    menuButtonView {
+                        showMenu = true
                     }
 
                     sendButtonView {
@@ -55,8 +53,6 @@ struct HomeView: View {
                     .popover(isPresented: $showingChatMenu) {
                         popoverSendContent()
                     }
-
-                    Spacer()
 
                     GlassEffectContainer(spacing: 50) {
                         HStack {
@@ -83,6 +79,7 @@ struct HomeView: View {
                             } else {
                                 timerButtonImage
                                     .padding()
+                                    .frame(height: 50)
                                     .foregroundStyle(.primary)
                                     .glassEffect(.regular.interactive())
                                     .glassEffectID(2, in: namespace)
@@ -108,16 +105,22 @@ struct HomeView: View {
                     .animation(.spring, value: timerActive || timerPaused)
                 }
                 .padding(.horizontal)
-                .padding(.bottom, 8)
             }
-            .navigationDestination(isPresented: $showSettings) {
-                SettingsView()
+            .navigationDestination(isPresented: $showMenu) {
+                MenuView()
             }
             .onAppear {
                 viewModel.setRandomPlaceholderText()
             }
             .background {
                 homeBackground()
+            }
+            .alert(isPresented: $showTimeIsUpAlert) {
+                Alert(
+                    title: Text("Time is up!"),
+                    message: Text("Feel free to finish up your thoughts!"),
+                    dismissButton: .default(Text("Got it!"))
+                )
             }
         }
     }
@@ -133,8 +136,14 @@ extension HomeView {
             withTimeInterval: 1,
             repeats: true,
             block: { _ in
-                viewModel.timeRemaining -= 1
-            })
+                if viewModel.timeRemaining != 0 {
+                    viewModel.timeRemaining -= 1
+                } else {
+                    stopTimer()
+                    showTimeIsUpAlert = true
+                }
+            }
+        )
     }
 
     func pauseTimer() {
@@ -170,11 +179,12 @@ extension HomeView {
         }
     }
 
-    func settingsButtonView(
+    func menuButtonView(
         _ action: @escaping ActionVoid
     ) -> some View {
-        Image(systemName: "gear")
+        Image(systemName: "line.3.horizontal")
             .padding()
+            .frame(height: 50)
             .foregroundStyle(.primary)
             .glassEffect(.regular.interactive())
             .onTapGesture {
@@ -233,7 +243,8 @@ extension HomeView {
                     .bold()
             }
         }
-        .padding()
+        .padding(.horizontal)
+        .ignoresSafeArea(.container)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 

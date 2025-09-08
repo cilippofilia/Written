@@ -11,7 +11,7 @@ import UniformTypeIdentifiers
 public class HomeViewModel: ObservableObject {
     @Published var entries: [HumanEntry] = []
     @Published var selectedEntryId: UUID? = nil
-    @Published var text: String = loremIpsum
+    @Published var text: String = loremIpsum // TODO: change to -> ""
     @Published var placeholderText: String = ""
     @Published var trimmedText: String = ""
 
