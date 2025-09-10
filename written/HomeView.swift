@@ -10,14 +10,16 @@ import SwiftUI
 public typealias ActionVoid = () -> Void
 
 struct HomeView: View {
-    @State private var showMenu: Bool = false
     @State private var timerActive: Bool = false
     @State private var timerPaused: Bool = false
+
     @State private var showTimeIsUpAlert: Bool = false
     @State private var showingChatMenu: Bool = false
+    @State private var showSettings: Bool = false
+
     @State private var didCopyPrompt: Bool = false
 
-    let timers: [Int] = [2, 300, 600, 900, 1200, 1500, 1800]
+    let timers: [Int] = [300, 600, 900, 1200, 1500, 1800]
 
     @StateObject var viewModel = HomeViewModel()
 
@@ -37,15 +39,30 @@ struct HomeView: View {
                 }
 
                 HStack {
-                    Button(action: {
-                        showMenu = true
-                    }) {
+                    // left menu
+                    Menu {
+                        Button(action: {
+                            showSettings = true
+                        }) {
+                            HStack {
+                                Image(systemName: "gear")
+                                Text("Settings")
+                            }
+                        }
+                    } label: {
                         Image(systemName: "line.3.horizontal")
+                            .padding()
+                            .foregroundStyle(.primary)
                     }
-                    .padding()
-                    .frame(height: 50)
-                    .foregroundStyle(.primary)
+                    .menuOrder(.priority)
+                    .buttonStyle(.plain)
+                    .overlay {
+                        Image(systemName: "line.3.horizontal")
+                            .padding()
+                            .foregroundStyle(.primary)
+                    }
 
+                    // center menu
                     Button(action: {
                         showingChatMenu = true
                         // Calculate potential URL lengths
@@ -62,6 +79,7 @@ struct HomeView: View {
                     .foregroundStyle(.primary)
 
                     HStack {
+                        // right menu
                         Menu {
                             ForEach(timers, id: \.self) { timer in
                                 Button("\(viewModel.formattedTime(for: timer))") {
@@ -77,7 +95,13 @@ struct HomeView: View {
                                 .padding()
                                 .foregroundStyle(.primary)
                         }
+                        .menuOrder(.priority)
                         .buttonStyle(.plain)
+                        .overlay {
+                            timerButtonImage
+                                .padding()
+                                .foregroundStyle(.primary)
+                        }
 
                         if timerActive {
                             Button(action: {
@@ -94,11 +118,18 @@ struct HomeView: View {
                 .padding(.horizontal)
                 .padding(.bottom, 8)
             }
+            .navigationDestination(
+                isPresented: $showSettings,
+                destination: {
+                    SettingsView()
+                        .background(meshBackground())
+                }
+            )
             .onAppear {
                 viewModel.setRandomPlaceholderText()
             }
             .background {
-                homeBackground()
+                meshBackground()
             }
             .alert(isPresented: $showTimeIsUpAlert) {
                 Alert(

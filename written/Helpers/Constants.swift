@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-func homeBackground() -> some View {
+func meshBackground() -> some View {
     TimelineView(.animation) { timeline in
         let x = (sin(timeline.date.timeIntervalSince1970) + 1) / 2
         MeshGradient(width: 3, height: 3, points: [
