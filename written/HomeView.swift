@@ -37,86 +37,9 @@ struct HomeView: View {
                     .font(.caption)
                     .bold()
                 }
-
-                HStack {
-                    // left menu
-                    Menu {
-                        Button(action: {
-                            showSettings = true
-                        }) {
-                            HStack {
-                                Image(systemName: "gear")
-                                Text("Settings")
-                            }
-                        }
-                    } label: {
-                        Image(systemName: "line.3.horizontal")
-                            .padding()
-                            .foregroundStyle(.primary)
-                    }
-                    .menuOrder(.priority)
-                    .buttonStyle(.plain)
-                    .overlay {
-                        Image(systemName: "line.3.horizontal")
-                            .padding()
-                            .foregroundStyle(.primary)
-                    }
-
-                    // center menu
-                    Button(action: {
-                        showingChatMenu = true
-                        // Calculate potential URL lengths
-                        viewModel.calculateURLLenghts()
-                    }) {
-                        HStack {
-                            Image(systemName: "character.cursor.ibeam")
-                            Text("written")
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .frame(height: 50)
-                    .foregroundStyle(.primary)
-
-                    HStack {
-                        // right menu
-                        Menu {
-                            ForEach(timers, id: \.self) { timer in
-                                Button("\(viewModel.formattedTime(for: timer))") {
-                                    viewModel.timeRemaining = Double(timer)
-                                    if !timerActive {
-                                        startTimer()
-                                    }
-                                }
-                            }
-                            Text("How long for?")
-                        } label: {
-                            timerButtonImage
-                                .padding()
-                                .foregroundStyle(.primary)
-                        }
-                        .menuOrder(.priority)
-                        .buttonStyle(.plain)
-                        .overlay {
-                            timerButtonImage
-                                .padding()
-                                .foregroundStyle(.primary)
-                        }
-
-                        if timerActive {
-                            Button(action: {
-                                stopTimer()
-                            }) {
-                                Image(systemName: "stop.circle")
-                            }
-                            .padding()
-                            .frame(height: 50)
-                            .foregroundStyle(.primary)
-                        }
-                    }
-                }
-                .padding(.horizontal)
-                .padding(.bottom, 8)
+            }
+            .safeAreaInset(edge: .bottom) {
+                footerView
             }
             .navigationDestination(
                 isPresented: $showSettings,
@@ -269,6 +192,99 @@ extension HomeView {
 
             copyPromptButtonView()
         }
+    }
+}
+
+// MARK: FooterView
+extension HomeView {
+    var footerView: some View {
+        HStack {
+            // left menu
+            Menu {
+                Button(action: {
+                    showSettings = true
+                }) {
+                    HStack {
+                        Image(systemName: "gear")
+                        Text("Settings")
+                    }
+                }
+            } label: {
+                Image(systemName: "line.3.horizontal")
+                    .padding()
+                    .foregroundStyle(.primary)
+            }
+            .menuOrder(.priority)
+            .buttonStyle(.plain)
+            .overlay {
+                Image(systemName: "line.3.horizontal")
+                    .padding()
+                    .foregroundStyle(.primary)
+            }
+
+            // center menu
+            Menu {
+                Button("A") { }
+                Button("B") { }
+                Button("C") { }
+            } label: {
+                HStack {
+                    Image(systemName: "character.cursor.ibeam")
+                    Text("written")
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .frame(height: 50)
+                .foregroundStyle(.primary)
+            }
+            .menuOrder(.priority)
+            .buttonStyle(.plain)
+            .overlay {
+                HStack {
+                    Image(systemName: "character.cursor.ibeam")
+                    Text("written")
+                }
+            }
+
+            HStack {
+                // right menu
+                Menu {
+                    ForEach(timers, id: \.self) { timer in
+                        Button("\(viewModel.formattedTime(for: timer))") {
+                            viewModel.timeRemaining = Double(timer)
+                            if !timerActive {
+                                startTimer()
+                            }
+                        }
+                    }
+                    Text("How long for?")
+                } label: {
+                    timerButtonImage
+                        .padding()
+                        .foregroundStyle(.primary)
+                }
+                .menuOrder(.priority)
+                .buttonStyle(.plain)
+                .overlay {
+                    timerButtonImage
+                        .padding()
+                        .foregroundStyle(.primary)
+                }
+
+                if timerActive {
+                    Button(action: {
+                        stopTimer()
+                    }) {
+                        Image(systemName: "stop.circle")
+                    }
+                    .padding()
+                    .frame(height: 50)
+                    .foregroundStyle(.primary)
+                }
+            }
+        }
+        .padding(.horizontal)
+        .padding(.bottom, 8)
     }
 }
 
