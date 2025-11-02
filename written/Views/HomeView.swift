@@ -39,7 +39,9 @@ struct HomeView: View {
                 }
             }
             .safeAreaInset(edge: .bottom) {
-                footerView
+                GlassEffectContainer {
+                    footerView
+                }
             }
             .navigationDestination(
                 isPresented: $showSettings,
@@ -124,8 +126,8 @@ extension HomeView {
                     .bold()
             }
         }
-        .padding(.horizontal)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .padding()
     }
 
     @ViewBuilder
@@ -298,4 +300,3 @@ extension HomeView {
 #Preview {
     HomeView()
 }
-

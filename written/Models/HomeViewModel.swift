@@ -41,11 +41,12 @@ public class HomeViewModel: ObservableObject {
 
     let headerString = "\n\n"
     let fileManager = FileManager.default
+
     // Add cached documents directory
     let documentsDirectory: URL = {
         let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("written")
 
-        // Create Freewrite directory if it doesn't exist
+        // Create written directory if it doesn't exist
         if !FileManager.default.fileExists(atPath: directory.path) {
             do {
                 try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -57,11 +58,6 @@ public class HomeViewModel: ObservableObject {
 
         return directory
     }()
-
-    // Modify getDocumentsDirectory to use cached value
-    func getDocumentsDirectory() -> URL {
-        return documentsDirectory
-    }
 }
 
 // MARK: Timer methods
@@ -133,6 +129,11 @@ extension HomeViewModel {
         } catch {
             print("Error updating preview text: \(error)")
         }
+    }
+
+    // Modify getDocumentsDirectory to use cached value
+    func getDocumentsDirectory() -> URL {
+        return documentsDirectory
     }
 }
 
@@ -378,31 +379,4 @@ extension HomeViewModel {
             createNewEntry()
         }
     }
-}
-
-// MARK: AI methods
-public extension HomeViewModel {
-    // TODO: make it open ChatGPT if installed on device
-    func openChatGPT() {
-        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let fullText = aiChatPrompt + "\n\n" + trimmedText
-
-        if let encodedText = fullText.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-           let url = URL(string: "https://chat.openai.com/?m=" + encodedText) { }
-    }
-
-    // TODO: make it open Claude if installed on device
-    func openClaude() {
-        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let fullText = claudePrompt + "\n\n" + trimmedText
-
-        if let encodedText = fullText.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-           let url = URL(string: "https://claude.ai/new?q=" + encodedText) { }
-    }
-
-    // TODO: make it open GROK
-    func useGrok() { }
-
-    // TODO: make it open Apple Intelligence
-    func useAppleIntelligence() { }
 }
