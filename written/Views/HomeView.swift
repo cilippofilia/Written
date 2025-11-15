@@ -50,10 +50,11 @@ struct HomeView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(meshBackground())
             }
-            .navigationDestination(isPresented: $showWhyAI) {
-                WhyAIView()
+            .sheet(isPresented: $showWhyAI) {
+                WhyAIView(action: { showWhyAI = false })
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(meshBackground())
+                    .background(.ultraThinMaterial)
+                    .presentationDetents([.medium])
             }
             .onAppear {
                 viewModel.setRandomPlaceholderText()

@@ -8,8 +8,9 @@
 import SwiftUI
 
 struct WhyAIView: View {
+    let action: ActionVoid
     let analogy: String = """
-    
+
     Think of most AI services like mailing a letter - once you send it, the post office has a copy and can read it. Apple's AI is like whispering to yourself (on-device) or using a secure vault that destroys the contents immediately after reading it to you (Private Cloud Compute). Not even Apple keeps a copy.
         
     """
@@ -18,27 +19,39 @@ struct WhyAIView: View {
     """
 
     var body: some View {
-        Group {
-            HStack(spacing: 0) {
-                Text("Why using ")
+        NavigationStack {
+            VStack {
+                HStack(spacing: 0) {
+                    Text("Why using ")
 
-                Image(systemName: "apple.intelligence")
-                    .symbolRenderingMode(.multicolor)
+                    Image(systemName: "apple.intelligence")
+                        .symbolRenderingMode(.multicolor)
 
-                Link("Apple Intelligence", destination: URL(string: "https://www.apple.com/apple-intelligence/")!)
-                    .tint(.primary)
-                    .bold()
-                    .underline(true, color: .secondary)
+                    Link("Apple Intelligence", destination: URL(string: "https://www.apple.com/apple-intelligence/")!)
+                        .tint(.primary)
+                        .bold()
+                        .underline(true, color: .secondary)
 
-                Text("?")
+                    Text("?")
+                }
+                Text(analogy)
+                Text(explanation)
             }
-            Text(analogy)
-            Text(explanation)
+            .padding(.horizontal)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Image(systemName: "xmark")
+                        .foregroundStyle(.secondary)
+                        .onTapGesture {
+                            action()
+                        }
+                }
+            }
+
         }
-        .padding(.horizontal)
     }
 }
 
 #Preview {
-    WhyAIView()
+    WhyAIView(action: { })
 }
