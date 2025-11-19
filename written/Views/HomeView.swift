@@ -65,7 +65,7 @@ struct HomeView: View {
             .alert(isPresented: $showTimeIsUpAlert) {
                 Alert(
                     title: Text("Time is up!"),
-                    message: Text("Feel free to finish up your thoughts!"),
+                    message: Text("Feel free to finish up your thoughts and then press Send!"),
                     dismissButton: .default(Text("Got it!"))
                 )
             }

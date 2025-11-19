@@ -139,19 +139,9 @@ extension HomeViewModel {
 
 // MARK: Entries methods
 extension HomeViewModel {
-    func calculateURLLenghts() {
-        gptFullText = aiChatPrompt + "\n\n" + trimmedText
-        claudeFullText = claudePrompt + "\n\n" + trimmedText
-        encodedGptText = gptFullText.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        encodedClaudeText = claudeFullText.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        gptUrlLength = "https://chat.openai.com/?m=".count + encodedGptText.count
-        claudeUrlLength = "https://claude.ai/new?q=".count + encodedClaudeText.count
-        isUrlTooLong = gptUrlLength > 6000 || claudeUrlLength > 6000
-    }
-
     func copyPromptToClipboard() {
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let fullText = aiChatPrompt + "\n\n" + trimmedText
+        let fullText = reflectivePrompt + "\n\n" + trimmedText
 
         UIPasteboard.general
             .setValue(fullText, forPasteboardType: UTType.plainText.identifier)

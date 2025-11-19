@@ -11,13 +11,13 @@ import SwiftUI
 
 #Playground {
     let session = LanguageModelSession {
-        aiChatPrompt
+        reflectivePrompt
     }
-    let prompt = ""
-    let response = try await session.respond(to: prompt)
+    let userInput = "i've been feeling really down today because i had a fight with my mum. i know she means good for me but sometimes it feels like she's projecting her own insecurities onto me, trying to dictate me. and when i push back, she gets frustrated. i know we're okay but i'm just feeling down about it and i'd like some help processing it"
+    let response = try await session.respond(to: userInput)
     var errorResponse = ""
     do {
-        let response = try await session.respond(to: prompt)
+        let response = try await session.respond(to: userInput)
         print(response.content)
     } catch let error as LanguageModelSession.GenerationError {
         switch error {
