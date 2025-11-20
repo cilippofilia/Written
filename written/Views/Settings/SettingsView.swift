@@ -8,16 +8,16 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @Environment(ThemeManager.self) var themeManager
+    @Environment(ThemeManager.self) var themeManager: ThemeManager
 
     let appearanceModes = ["System", "Light", "Dark"]
 
     var body: some View {
-        @Bindable var themeManager = themeManager
+        @Bindable var theme = themeManager
 
         Form {
             Section(header: Text("Appearance")) {
-                Picker("Theme", selection: $themeManager.appearanceMode) {
+                Picker("Theme", selection: $theme.appearanceMode) {
                     ForEach(appearanceModes, id: \.self) { mode in
                         Text(mode).tag(mode)
                     }

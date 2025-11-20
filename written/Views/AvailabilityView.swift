@@ -9,8 +9,7 @@ import FoundationModels
 import SwiftUI
 
 struct AvailabilityView: View {
-    @Environment(ThemeManager.self) var themeManager
-
+    @Environment(ThemeManager.self) var themeManager: ThemeManager
     @State private var homeVM: HomeViewModel = HomeViewModel()
 
     private var model = SystemLanguageModel.default

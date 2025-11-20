@@ -10,22 +10,9 @@
 		18A488EE2E68BD5F00A87380 /* written.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = written.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		18C26F352EB8877D009DE293 /* Exceptions for "written" folder in "written" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Views/writtenApp.swift,
-			);
-			target = 18A488ED2E68BD5F00A87380 /* written */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		18A488F02E68BD5F00A87380 /* written */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				18C26F352EB8877D009DE293 /* Exceptions for "written" folder in "written" target */,
-			);
 			path = written;
 			sourceTree = "<group>";
 		};

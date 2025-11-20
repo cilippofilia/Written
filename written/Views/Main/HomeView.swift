@@ -10,8 +10,8 @@ import SwiftUI
 public typealias ActionVoid = () -> Void
 
 struct HomeView: View {
-    @Environment(ThemeManager.self) var themeManager
     @Environment(HomeViewModel.self) var viewModel
+    @Environment(ThemeManager.self) var themeManager: ThemeManager
 
     @FocusState private var isFocused: Bool
 

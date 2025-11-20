@@ -36,6 +36,7 @@ public class ThemeManager {
         appearanceMode == .system
     }
 
+    @ViewBuilder
     var backgroundGradient: some View {
         TimelineView(.animation) { timeline in
             let x = (sin(timeline.date.timeIntervalSince1970) + 1) / 2
