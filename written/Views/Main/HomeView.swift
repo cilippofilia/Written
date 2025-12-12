@@ -63,9 +63,6 @@ struct HomeView: View {
             .onAppear {
                 viewModel.setRandomPlaceholderText()
             }
-            .background {
-                meshBackgroundGradient
-            }
             .alert(isPresented: $showTimeIsUpAlert) {
                 Alert(
                     title: Text("Time is up!"),

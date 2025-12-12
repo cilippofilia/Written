@@ -32,9 +32,6 @@ struct AvailabilityView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background {
-            meshBackgroundGradient
-        }
     }
 }
 
