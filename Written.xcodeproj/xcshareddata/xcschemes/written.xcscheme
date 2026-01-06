@@ -18,7 +18,7 @@
                BlueprintIdentifier = "18A488ED2E68BD5F00A87380"
                BuildableName = "Written.app"
                BlueprintName = "Written"
-               ReferencedContainer = "container:written.xcodeproj">
+               ReferencedContainer = "container:Written.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -47,7 +47,7 @@
             BlueprintIdentifier = "18A488ED2E68BD5F00A87380"
             BuildableName = "Written.app"
             BlueprintName = "Written"
-            ReferencedContainer = "container:written.xcodeproj">
+            ReferencedContainer = "container:Written.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -64,7 +64,7 @@
             BlueprintIdentifier = "18A488ED2E68BD5F00A87380"
             BuildableName = "Written.app"
             BlueprintName = "Written"
-            ReferencedContainer = "container:written.xcodeproj">
+            ReferencedContainer = "container:Written.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>
@@ -73,6 +73,7 @@
    </AnalyzeAction>
    <ArchiveAction
       buildConfiguration = "Release"
+      customArchiveName = "Written"
       revealArchiveInOrganizer = "YES">
    </ArchiveAction>
 </Scheme>
