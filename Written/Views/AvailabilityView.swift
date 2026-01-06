@@ -9,29 +9,35 @@ import FoundationModels
 import SwiftUI
 
 struct AvailabilityView: View {
-    @State private var homeVM: HomeViewModel = HomeViewModel()
-
-    private var model = SystemLanguageModel.default
+    @State private var homeVM = HomeViewModel()
+    @State private var model: SystemLanguageModel?
 
     var body: some View {
         Group {
-            switch model.availability {
+            switch model?.availability {
             case .available:
                 HomeView()
                     .environment(homeVM)
             case .unavailable(.modelNotReady):
-                Text("This model is not ready yet. Please try again later.")
+                ModelNotReadyView(action: {
+                    model = SystemLanguageModel.default
+                })
             case .unavailable(.appleIntelligenceNotEnabled):
-                Text("Apple Intelligence is not enabled on this device. Please turn on Apple Intelligence.")
+                AINotEnabledView()
             case .unavailable(.deviceNotEligible):
-                Text("This device is not eligible for Apple Intelligence.")
-            case .unavailable(let other):
-                Text("Unavailable: " + String(describing: other))
+                DeviceNotSupportedView()
+            case .none:
+                CheckingAvailabilityView()
             @unknown default:
-                Text("Unknown")
+                UnknownReasonView(action: {
+                    model = SystemLanguageModel.default
+                })
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .task {
+            model = SystemLanguageModel.default
+        }
     }
 }
 
