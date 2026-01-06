@@ -5,7 +5,6 @@
 //  Created by Filippo Cilia on 03/09/2025.
 //
 
-import FoundationModels
 import SwiftUI
 
 @MainActor
@@ -17,17 +16,6 @@ public class HomeViewModel {
     var timerPausedElapsed: TimeInterval = 0
     var timerActive: Bool = false
     var timerPaused: Bool = false
-
-    // AI session & response state
-    var aiAnswer: String = ""
-    var errorTitle: String? = nil
-    var errorMessage: String? = nil
-    var showAIGenerationAlert: Bool = false
-    var showAIGeneratedAnswer: Bool = false
-    var isResponding: Bool = false
-
-    // Private session
-    private var session: LanguageModelSession? = nil
 
     let placeholderOptions: [String] = [
         "Begin writing",
@@ -113,71 +101,5 @@ public class HomeViewModel {
         timerPausedElapsed = 0
         timerActive = false
         timerPaused = false
-    }
-    
-    // MARK: - AI Send Logic
-    func send(text: String) async {
-        let input = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !input.isEmpty else { return }
-
-        resetAlerts()
-        prepareSessionIfNeeded()
-        guard let session else { return }
-
-        do {
-            isResponding = session.isResponding
-            let stream = session.streamResponse(to: input)
-            for try await partial in stream {
-                aiAnswer = partial.content
-                showAIGeneratedAnswer = true
-                showAIGenerationAlert = false
-            }
-        } catch let error as LanguageModelSession.GenerationError {
-            handleGenerationError(error)
-        } catch {
-            if let error = error as? FoundationModels.LanguageModelSession.GenerationError {
-                errorMessage = "Error: \(error.localizedDescription)"
-            } else {
-                errorMessage = "Error: \(error.localizedDescription)"
-            }
-            showAIGenerationAlert = true
-        }
-        isResponding = false
-    }
-
-    private func prepareSessionIfNeeded() {
-        if session == nil {
-            session = LanguageModelSession(
-                instructions: { self.promptOptions.first }
-            )
-        }
-    }
-
-    private func resetAlerts() {
-        errorMessage = nil
-        showAIGenerationAlert = false
-        showAIGeneratedAnswer = false
-    }
-
-    private func handleGenerationError(_ error: LanguageModelSession.GenerationError) {
-        switch error {
-        case .guardrailViolation(let context):
-            errorTitle = "Guardrail Violation"
-            errorMessage = "\(context.debugDescription)"
-        case .decodingFailure(let context):
-            errorTitle = "Decoding Failure"
-            errorMessage = "\(context.debugDescription)"
-        case .rateLimited(let context):
-            errorTitle = "Rate Limited"
-            errorMessage = "\(context.debugDescription)"
-        default:
-            errorTitle = "Response Error"
-            errorMessage = "\(error.localizedDescription)"
-        }
-        if let recoverySuggestion = error.recoverySuggestion {
-            let base = errorMessage ?? ""
-            errorMessage = base + "\n\n\(recoverySuggestion)" + "\(error.helpAnchor ?? "")"
-        }
-        showAIGenerationAlert = true
     }
 }
