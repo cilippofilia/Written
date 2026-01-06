@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import FoundationModels
 
 public typealias ActionVoid = () -> Void
 
@@ -16,19 +15,11 @@ struct HomeView: View {
     @FocusState private var isFocused: Bool
 
     @State private var text: String  = ""
-    @State private var aiAnswer: String  = ""
-    @State private var errorTitle: String? = nil
-    @State private var errorMessage: String? = nil
-
     @State private var showTimeIsUpAlert: Bool = false
-    @State private var showAIGenerationAlert: Bool = false
     @State private var showInputEmptyAlert: Bool = false
-    @State private var showAIGeneratedAnswer: Bool = false
     @State private var showLowCharacterCountAlert: Bool = false
     @State private var showWhyAI: Bool = false
     @State private var showSettings: Bool = false
-
-    @State private var session: LanguageModelSession? = nil
 
     var body: some View {
         NavigationStack {
@@ -37,6 +28,15 @@ struct HomeView: View {
 
                 if viewModel.timerActive || viewModel.timerPaused {
                     CountdownView(showTimeIsUpAlert: $showTimeIsUpAlert)
+                }
+            }
+            .overlay {
+                if viewModel.isResponding {
+                    Image(systemName: "brain")
+                        .symbolRenderingMode(.multicolor)
+                        .symbolColorRenderingMode(.gradient)
+                        .padding()
+                        .background(.ultraThinMaterial)
                 }
             }
             .toolbar {
@@ -58,15 +58,12 @@ struct HomeView: View {
                     .presentationDetents([.medium])
                     .presentationDragIndicator(.visible)
             }
-            .sheet(isPresented: $showAIGeneratedAnswer) {
-                AIGeneratedAnswerView(answer: aiAnswer)
+            .sheet(isPresented: Binding(get: { viewModel.showAIGeneratedAnswer }, set: { viewModel.showAIGeneratedAnswer = $0 })) {
+                AIGeneratedAnswerView(answer: viewModel.aiAnswer)
                     .background(.ultraThinMaterial)
                     .presentationDetents([.medium, .large])
                     .presentationDragIndicator(.visible)
                     .transition(.opacity)
-                    .onDisappear {
-                        session = nil
-                    }
             }
             .onAppear {
                 viewModel.setRandomPlaceholderText()
@@ -92,10 +89,10 @@ struct HomeView: View {
                     dismissButton: .default(Text("Dismiss"))
                 )
             }
-            .alert(isPresented: $showAIGenerationAlert) {
+            .alert(isPresented: Binding(get: { viewModel.showAIGenerationAlert }, set: { viewModel.showAIGenerationAlert = $0 })) {
                 Alert(
                     title: Text("Response Error"),
-                    message: Text(errorMessage ?? "Try again later."),
+                    message: Text(viewModel.errorMessage ?? "Try again later."),
                     dismissButton: .default(Text("Got it!"))
                 )
             }
@@ -108,7 +105,7 @@ struct HomeView: View {
 extension HomeView {
     var textfieldView: some View {
         TextEditor(text: $text)
-            .foregroundStyle((session?.isResponding ?? false) ? .secondary : .primary)
+            .foregroundStyle(viewModel.isResponding ? .secondary : .primary)
             .padding(.horizontal, 8)
             .overlay(alignment: .topLeading) {
                 if text.isEmpty {
@@ -124,7 +121,7 @@ extension HomeView {
             .focused($isFocused)
             .scrollBounceBehavior(.basedOnSize)
             .scrollContentBackground(.hidden)
-            .disabled(session?.isResponding ?? false)
+            .disabled(viewModel.isResponding)
     }
 
     var whyAIButtonView: some View {
@@ -142,14 +139,13 @@ extension HomeView {
     var footerView: some View {
         HStack {
             SendButtonView(
-                isResponding: session?.isResponding ?? false,
+                isResponding: viewModel.isResponding,
                 isInputEmpty: text.isEmpty,
                 sendAction: {
-                    if text.count < 150 { showLowCharacterCountAlert = true }
                     handleSendTapped()
                 }
             )
-            .disabled(session?.isResponding ?? false)
+            .disabled(viewModel.isResponding)
             .disabled(text.isEmpty)
 
             TimerButtonView()
@@ -163,79 +159,10 @@ extension HomeView {
 extension HomeView {
     @MainActor
     private func handleSendTapped() {
-        Task {
-            await performSend()
-        }
-    }
-
-    @MainActor
-    private func performSend() async {
         let input = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !input.isEmpty else { return }
-
         isFocused = false
-        resetAlerts()
-        prepareSessionIfNeeded()
-
-        guard let session = session else { return }
-
-        do {
-            let stream = session.streamResponse(to: input)
-            for try await partial in stream {
-                aiAnswer = partial.content
-                withAnimation {
-                    showAIGeneratedAnswer = true
-                    showAIGenerationAlert = false
-                }
-            }
-        } catch let error as LanguageModelSession.GenerationError {
-            handleGenerationError(error)
-        } catch {
-            if let error = error as? FoundationModels.LanguageModelSession.GenerationError {
-                errorMessage = "Error: \(error.localizedDescription)"
-            } else {
-                errorMessage = "Error: \(error.localizedDescription)"
-            }
-            showAIGenerationAlert = true
-        }
-    }
-
-    private func prepareSessionIfNeeded() {
-        if session == nil {
-            session = LanguageModelSession(
-                instructions: { viewModel.promptOptions.first }
-            )
-        }
-    }
-
-    @MainActor
-    private func resetAlerts() {
-        errorMessage = nil
-        showAIGenerationAlert = false
-        showAIGeneratedAnswer = false
-    }
-
-    @MainActor
-    private func handleGenerationError(_ error: LanguageModelSession.GenerationError) {
-        switch error {
-        case .guardrailViolation(let context):
-            errorTitle = "Guardrail Violation"
-            errorMessage = "\(context.debugDescription)"
-        case .decodingFailure(let context):
-            errorTitle = "Decoding Failure"
-            errorMessage = "\(context.debugDescription)"
-        case .rateLimited(let context):
-            errorTitle = "Rate Limited"
-            errorMessage = "\(context.debugDescription)"
-        default:
-            errorTitle = "Response Error"
-            errorMessage = "\(error.localizedDescription)"
-        }
-        if let recoverySuggestion = error.recoverySuggestion {
-            let base = errorMessage ?? ""
-            errorMessage = base + "\n\n\(recoverySuggestion)" + "\(error.helpAnchor ?? "")"
-        }
-        showAIGenerationAlert = true
+        Task { await viewModel.send(text: input) }
     }
 }
 
