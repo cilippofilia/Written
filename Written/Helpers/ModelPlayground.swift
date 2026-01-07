@@ -10,7 +10,7 @@ import Playgrounds
 import SwiftUI
 
 #Playground {
-    let promptOptions: [String] = [
+    let promptOptions: [PromptModel] = [
         reflectivePrompt,
         insightfulPrompt,
         actionableSuggestionPrompt,
@@ -18,7 +18,7 @@ import SwiftUI
         challengingPrompt
     ]
     let session = LanguageModelSession {
-        promptOptions.randomElement() ?? reflectivePrompt
+        promptOptions.randomElement()?.prompt ?? reflectivePrompt.prompt
     }
     let userInput = "I am feeling sad. today is cold. there are -30°C outside."
     var errorResponse = ""

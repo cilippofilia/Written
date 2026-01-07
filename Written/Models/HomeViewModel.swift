@@ -5,6 +5,7 @@
 //  Created by Filippo Cilia on 03/09/2025.
 //
 
+import FoundationModels
 import SwiftUI
 
 @MainActor
@@ -16,6 +17,14 @@ public class HomeViewModel {
     var timerPausedElapsed: TimeInterval = 0
     var timerActive: Bool = false
     var timerPaused: Bool = false
+    var selectedPrompt: PromptModel
+    var session: LanguageModelSession?
+
+    init(
+        selectedPrompt: PromptModel? = nil
+    ) {
+        self.selectedPrompt = selectedPrompt ?? promptOptions.first!
+    }
 
     let placeholderOptions: [String] = [
         "Begin writing",
@@ -27,8 +36,8 @@ public class HomeViewModel {
         "Start with one sentence",
         "Just say it"
     ]
-
-    let promptOptions: [String] = [
+    
+    let promptOptions: [PromptModel] = [
         reflectivePrompt,
         insightfulPrompt,
         actionableSuggestionPrompt,
@@ -101,5 +110,30 @@ public class HomeViewModel {
         timerPausedElapsed = 0
         timerActive = false
         timerPaused = false
+    }
+    
+    func prepareInitialState(storedPromptID: String) {
+        setRandomPlaceholderText()
+
+        if let match = promptOptions.first(where: { $0.id == storedPromptID }) {
+            selectedPrompt = match
+        } else if let first = promptOptions.first {
+            selectedPrompt = first
+        }
+
+        prepareSessionIfNeeded()
+    }
+
+    func updateSelection(to prompt: PromptModel) {
+        selectedPrompt = prompt
+        prepareSessionIfNeeded()
+    }
+
+    private func prepareSessionIfNeeded() {
+        if session == nil {
+            session = LanguageModelSession(
+                instructions: { selectedPrompt.prompt }
+            )
+        }
     }
 }
