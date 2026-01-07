@@ -5,18 +5,18 @@
 //  Created by Filippo Cilia on 03/09/2025.
 //
 
-import SwiftUI
 import FoundationModels
+import SwiftUI
 
 public typealias ActionVoid = () -> Void
 
 struct HomeView: View {
     @AppStorage("selectedPromptID") private var selectedPromptID: String = ""
+
     @Environment(HomeViewModel.self) var viewModel
 
     @FocusState private var isFocused: Bool
 
-    @State private var selectedPrompt: PromptModel = PromptModel.init(id: "", title: "", prompt: "")
     @State private var text: String  = ""
     @State private var aiAnswer: String  = ""
     @State private var errorTitle: String? = nil
@@ -31,7 +31,6 @@ struct HomeView: View {
     @State private var showSettings: Bool = false
     @State private var showOverlay: Bool = false
 
-    @State private var session: LanguageModelSession? = nil
     @State private var shouldSend: Bool = false
 
     var body: some View {
@@ -52,10 +51,16 @@ struct HomeView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     GlassEffectContainer {
                         MenuButtonView(
-                            selectedPrompt: $selectedPrompt,
+                            selectedPrompt: .init(
+                                get: { viewModel.selectedPrompt },
+                                set: { viewModel.updateSelection(to: $0) }
+                            ),
                             prompts: viewModel.promptOptions,
                             showWhyAISheet: $showWhyAI
                         )
+                        .onChange(of: viewModel.selectedPrompt) { _, newPrompt in
+                            selectedPromptID = newPrompt.id
+                        }
                     }
                 }
             }
@@ -81,32 +86,17 @@ struct HomeView: View {
                         showOverlay = false
                     }
                     .onDisappear {
-                        session = nil
+                        viewModel.session = nil
                         text = ""
                     }
             }
             .onAppear {
-                viewModel.setRandomPlaceholderText()
-            }
-            .task(id: viewModel.promptOptions) {
-                if let match = viewModel.promptOptions.first(where: { $0.id == selectedPromptID }) {
-                    selectedPrompt = match
-                    prepareSessionIfNeeded()
-                } else if let first = viewModel.promptOptions.first {
-                    selectedPrompt = first
-                    selectedPromptID = first.id
-                    prepareSessionIfNeeded()
-                }
+                viewModel.prepareInitialState(storedPromptID: selectedPromptID)
             }
             .task(id: shouldSend) {
                 guard shouldSend else { return }
                 await performSend()
                 shouldSend = false
-            }
-            .onChange(of: selectedPrompt) { _, newValue in
-                selectedPromptID = newValue.id
-                session = nil
-                prepareSessionIfNeeded()
             }
             .alert(isPresented: $showTimeIsUpAlert) {
                 Alert(
@@ -145,7 +135,7 @@ struct HomeView: View {
 extension HomeView {
     var textfieldView: some View {
         TextEditor(text: $text)
-            .foregroundStyle((session?.isResponding ?? false) ? .secondary : .primary)
+            .foregroundStyle((viewModel.session?.isResponding ?? false) ? .secondary : .primary)
             .padding(.horizontal, 8)
             .overlay(alignment: .topLeading) {
                 if text.isEmpty {
@@ -161,7 +151,7 @@ extension HomeView {
             .focused($isFocused)
             .scrollBounceBehavior(.basedOnSize)
             .scrollContentBackground(.hidden)
-            .disabled(session?.isResponding ?? false)
+            .disabled(viewModel.session?.isResponding ?? false)
     }
 }
 
@@ -170,13 +160,13 @@ extension HomeView {
     var footerView: some View {
         HStack {
             SendButtonView(
-                isResponding: session?.isResponding ?? false,
+                isResponding: viewModel.session?.isResponding ?? false,
                 isInputEmpty: text.isEmpty,
                 sendAction: {
                     handleSendTapped()
                 }
             )
-            .disabled(session?.isResponding ?? false)
+            .disabled(viewModel.session?.isResponding ?? false)
             .disabled(text.isEmpty)
 
             TimerButtonView()
@@ -202,9 +192,8 @@ extension HomeView {
 
         isFocused = false
         resetAlerts()
-        prepareSessionIfNeeded()
 
-        guard let session = session else { return }
+        guard let session = viewModel.session else { return }
 
         do {
             let stream = session.streamResponse(to: input)
@@ -226,14 +215,6 @@ extension HomeView {
             showAIGenerationAlert = true
         }
         showOverlay = false
-    }
-
-    private func prepareSessionIfNeeded() {
-        if session == nil {
-            session = LanguageModelSession(
-                instructions: { selectedPrompt.prompt }
-            )
-        }
     }
 
     @MainActor
@@ -271,4 +252,3 @@ extension HomeView {
     HomeView()
         .environment(HomeViewModel())
 }
-
