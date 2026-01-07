@@ -4,38 +4,40 @@
   },
   "groups" : [
     {
-      "blur-material" : null,
       "hidden" : false,
       "layers" : [
         {
-          "fill-specializations" : [
-            {
-              "value" : {
-                "solid" : "srgb:0.00000,0.00000,0.00000,1.00000"
-              }
-            },
-            {
-              "appearance" : "dark",
-              "value" : {
-                "solid" : "srgb:0.75407,0.75409,0.75408,1.00000"
-              }
-            }
-          ],
-          "glass" : true,
-          "image-name" : "written.svg",
-          "name" : "written",
+          "blend-mode" : "multiply",
+          "fill" : {
+            "solid" : "srgb:0.00000,0.00000,0.00000,1.00000"
+          },
+          "glass" : false,
+          "image-name" : "Vector.png",
+          "name" : "Vector",
           "position" : {
-            "scale" : 0.75,
+            "scale" : 0.85,
             "translation-in-points" : [
-              0,
+              256.31,
               0
+            ]
+          }
+        },
+        {
+          "glass" : false,
+          "image-name" : "w.svg",
+          "name" : "w",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              -112.625,
+              73.20510556015597
             ]
           }
         }
       ],
       "lighting" : "combined",
       "shadow" : {
-        "kind" : "neutral",
+        "kind" : "none",
         "opacity" : 0.5
       },
       "specular" : false,
