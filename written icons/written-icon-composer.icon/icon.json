@@ -4,6 +4,8 @@
   },
   "groups" : [
     {
+      "blur-material" : null,
+      "hidden" : false,
       "layers" : [
         {
           "fill-specializations" : [
@@ -31,12 +33,14 @@
           }
         }
       ],
+      "lighting" : "combined",
       "shadow" : {
         "kind" : "neutral",
         "opacity" : 0.5
       },
+      "specular" : false,
       "translucency" : {
-        "enabled" : true,
+        "enabled" : false,
         "value" : 0.5
       }
     }
