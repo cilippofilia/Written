@@ -49,7 +49,7 @@ struct HomeView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     GlassEffectContainer {
-                        whyAIButtonView
+                        MenuButtonView(showWhyAISheet: $showWhyAI)
                     }
                 }
             }
@@ -141,15 +141,6 @@ extension HomeView {
             .scrollBounceBehavior(.basedOnSize)
             .scrollContentBackground(.hidden)
             .disabled(session?.isResponding ?? false)
-    }
-
-    var whyAIButtonView: some View {
-        Button(action: {
-            showWhyAI = true
-        }) {
-            Label("Why AI?", systemImage: "sparkles")
-                .symbolRenderingMode(.multicolor)
-        }
     }
 }
 
@@ -259,3 +250,4 @@ extension HomeView {
     HomeView()
         .environment(HomeViewModel())
 }
+
