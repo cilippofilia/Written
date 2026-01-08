@@ -51,11 +51,11 @@ struct HomeView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     GlassEffectContainer {
                         MenuButtonView(
-                            selectedPrompt: .init(
+                            selectedModel: .init(
                                 get: { viewModel.selectedPrompt },
                                 set: { viewModel.updateSelection(to: $0) }
                             ),
-                            prompts: viewModel.promptOptions,
+                            models: viewModel.promptOptions,
                             showWhyAISheet: $showWhyAI
                         )
                         .onChange(of: viewModel.selectedPrompt) { _, newPrompt in

@@ -17,10 +17,10 @@ public class HomeViewModel {
     var timerPausedElapsed: TimeInterval = 0
     var timerActive: Bool = false
     var timerPaused: Bool = false
-    var selectedPrompt: PromptModel
+    var selectedPrompt: AIModel
     var session: LanguageModelSession?
 
-    init(selectedPrompt: PromptModel? = nil) {
+    init(selectedPrompt: AIModel? = nil) {
         self.selectedPrompt = selectedPrompt ?? promptOptions.first!
     }
 
@@ -35,7 +35,7 @@ public class HomeViewModel {
         "Just say it"
     ]
     
-    let promptOptions: [PromptModel] = [
+    let promptOptions: [AIModel] = [
         reflectivePrompt,
         insightfulPrompt,
         actionableSuggestionPrompt,
@@ -122,7 +122,7 @@ public class HomeViewModel {
         prepareSessionIfNeeded()
     }
 
-    func updateSelection(to prompt: PromptModel) {
+    func updateSelection(to prompt: AIModel) {
         selectedPrompt = prompt
         prepareSessionIfNeeded()
     }

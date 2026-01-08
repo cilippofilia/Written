@@ -10,7 +10,7 @@ import Playgrounds
 import SwiftUI
 
 #Playground {
-    let promptOptions: [PromptModel] = [
+    let promptOptions: [AIModel] = [
         reflectivePrompt,
         insightfulPrompt,
         actionableSuggestionPrompt,

@@ -8,8 +8,8 @@
 import SwiftUI
 
 struct MenuButtonView: View {
-    let selectedPrompt: Binding<PromptModel>
-    let prompts: [PromptModel]
+    let selectedModel: Binding<AIModel>
+    let aiModels: [AIModel]
     let showWhyAISheet: Binding<Bool>
 
     var body: some View {
@@ -17,18 +17,24 @@ struct MenuButtonView: View {
             Menu {
                 Label("History", systemImage: "clock.arrow.circlepath")
                 Menu {
-                    Picker("Prompt types", selection: selectedPrompt) {
-                        ForEach(prompts, id: \.self) { promptModel in
-                            Text(promptModel.title)
+                    Picker("", selection: selectedModel) {
+                        ForEach(aiModels, id: \.self) { model in
+                            Text(model.title)
                         }
                     }
                 } label: {
-                    Label("Prompt types", systemImage: "brain")
+                    Label("Model types", systemImage: "brain")
                 }
+
                 Divider()
-                whyAIButtonView(action: {
+
+                // Why AI
+                Button(action: {
                     showWhyAISheet.wrappedValue = true
-                })
+                }) {
+                    Label("Why AI?", systemImage: "sparkles")
+                }
+
             } label: {
                 Button(
                     "Menu",
@@ -44,18 +50,12 @@ struct MenuButtonView: View {
             .glassEffect(.regular.interactive())
         }
     }
-
-    func whyAIButtonView(action: @escaping ActionVoid) -> some View {
-        Button(action: action) {
-            Label("Why AI?", systemImage: "sparkles")
-        }
-    }
 }
 
 #Preview {
     MenuButtonView(
-        selectedPrompt: .constant(PromptModel(id: "", title: "", prompt: "")),
-        prompts: [],
+        selectedModel: .constant(AIModel(id: "", title: "", prompt: "")),
+        aiModels: [],
         showWhyAISheet: .constant(false)
     )
 }

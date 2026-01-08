@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct PromptModel: Codable, Hashable {
+public struct AIModel: Codable, Hashable {
     public var id: String
     public var title: String
     public var prompt: String

@@ -7,7 +7,7 @@
 
 import Foundation
 
-public let reflectivePrompt: PromptModel = PromptModel(
+public let reflectivePrompt: AIModel = AIModel(
     id: "reflective-prompt",
     title: "Reflective",
     prompt: """
@@ -24,7 +24,7 @@ My entry:
 """
 )
 
-public let insightfulPrompt: PromptModel = PromptModel(
+public let insightfulPrompt: AIModel = AIModel(
     id: "insightful-prompt",
     title: "Insightful",
     prompt: """
@@ -42,7 +42,7 @@ Here's my journal entry:
 """
 )
 
-public let actionableSuggestionPrompt: PromptModel = PromptModel(
+public let actionableSuggestionPrompt: AIModel = AIModel(
     id: "actionable-suggestion-prompt",
     title: "Actionable",
     prompt: """
@@ -58,7 +58,7 @@ Here's my journal entry:
 """
 )
 
-public var validatingPrompt: PromptModel = PromptModel(
+public var validatingPrompt: AIModel = AIModel(
     id: "validating-prompt",
     title: "Validating",
     prompt: """
@@ -74,7 +74,7 @@ Here's my journal entry:
 """
 )
 
-public var challengingPrompt: PromptModel = PromptModel(
+public var challengingPrompt: AIModel = AIModel(
     id: "challenging-prompt",
     title: "Challenging",
     prompt: """
