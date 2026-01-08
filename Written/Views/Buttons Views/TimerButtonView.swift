@@ -8,8 +8,8 @@
 import SwiftUI
 
 struct TimerButtonView: View {
-    @Environment(HomeViewModel.self) var viewModel
-    
+    @Environment(CountdownViewModel.self) var viewModel
+
     let timers: [Int] = [5, 300, 600, 900, 1200, 1500, 1800]
     
     var body: some View {
@@ -37,11 +37,15 @@ struct TimerButtonView: View {
     private var timerMenuView: some View {
         Menu {
             ForEach(timers, id: \.self) { timer in
-                Button("\(viewModel.formattedTime(for: timer))") {
-                    viewModel.timerDuration = Double(timer)
-                    viewModel.startTimer()
+                Button {
+                    viewModel.startTimer(duration: TimeInterval(timer))
+                } label: {
+                    Text(viewModel.formattedTime(for: timer))
                 }
             }
+
+            Divider()
+
             Text("How long for?")
         } label: {
             timerButtonImage
@@ -85,5 +89,5 @@ struct TimerButtonView: View {
 
 #Preview {
     TimerButtonView()
-        .environment(HomeViewModel())
+        .environment(CountdownViewModel())
 }

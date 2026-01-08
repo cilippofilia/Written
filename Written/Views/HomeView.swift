@@ -14,22 +14,19 @@ struct HomeView: View {
     @AppStorage("selectedPromptID") private var selectedModelID: String = ""
 
     @Environment(HomeViewModel.self) var viewModel
-
+    @Environment(CountdownViewModel.self) var countDownViewModel
     @FocusState private var isFocused: Bool
 
     @State private var text: String  = ""
     @State private var aiAnswer: String  = ""
+
+    @State private var activeAlert: AlertType?
     @State private var errorTitle: String? = nil
     @State private var errorMessage: String? = nil
 
-    @State private var showTimeIsUpAlert: Bool = false
-    @State private var showAIGenerationAlert: Bool = false
-    @State private var showInputEmptyAlert: Bool = false
     @State private var showAIGeneratedAnswer: Bool = false
-    @State private var showLowCharacterCountAlert: Bool = false
-    @State private var showWhyAI: Bool = false
-    @State private var showSettings: Bool = false
-    @State private var showOverlay: Bool = false
+    @State private var showWhyAISheet: Bool = false
+    @State private var showOverlayView: Bool = false
 
     @State private var shouldSend: Bool = false
 
@@ -38,12 +35,12 @@ struct HomeView: View {
             VStack {
                 textfieldView
 
-                if viewModel.timerActive || viewModel.timerPaused {
-                    CountdownView(showTimeIsUpAlert: $showTimeIsUpAlert)
+                if countDownViewModel.timerActive || countDownViewModel.timerPaused {
+                    CountdownView()
                 }
             }
             .overlay {
-                if showOverlay {
+                if showOverlayView {
                     RespondingIndicator()
                 }
             }
@@ -56,7 +53,7 @@ struct HomeView: View {
                                 set: { viewModel.updateSelection(to: $0) }
                             ),
                             aiModels: viewModel.aiModelList,
-                            showWhyAISheet: $showWhyAI
+                            showWhyAISheet: $showWhyAISheet
                         )
                         .onChange(of: viewModel.selectedAIModel) { _, newModel in
                             selectedModelID = newModel.id
@@ -69,8 +66,8 @@ struct HomeView: View {
                     footerView
                 }
             }
-            .sheet(isPresented: $showWhyAI) {
-                WhyAIView(action: { showWhyAI = false })
+            .sheet(isPresented: $showWhyAISheet) {
+                WhyAIView(action: { showWhyAISheet = false })
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(.ultraThinMaterial)
                     .presentationDetents([.medium])
@@ -83,7 +80,7 @@ struct HomeView: View {
                     .presentationDragIndicator(.visible)
                     .transition(.opacity)
                     .onAppear {
-                        showOverlay = false
+                        showOverlayView = false
                     }
                     .onDisappear {
                         viewModel.session = nil
@@ -98,33 +95,20 @@ struct HomeView: View {
                 await performSend()
                 shouldSend = false
             }
-            .alert(isPresented: $showTimeIsUpAlert) {
-                Alert(
-                    title: Text("Time is up!"),
-                    message: Text("Feel free to finish up your thoughts and then press Send!"),
-                    dismissButton: .default(Text("Got it!"))
-                )
+            .alert(activeAlert?.title ?? "", isPresented: Binding(
+                get: { activeAlert != nil },
+                set: { if !$0 { activeAlert = nil } }
+            )) {
+                Button(activeAlert?.buttonText ?? "OK") {
+                    activeAlert = nil
+                }
+            } message: {
+                Text(activeAlert?.message ?? "")
             }
-            .alert(isPresented: $showInputEmptyAlert) {
-                Alert(
-                    title: Text("OOPS!"),
-                    message: Text("Your input is empty.\nStart the timer, set it to the minimum and start typing away!"),
-                    dismissButton: .default(Text("Dismiss"))
-                )
-            }
-            .alert(isPresented: $showLowCharacterCountAlert) {
-                Alert(
-                    title: Text("OOPS!"),
-                    message: Text("Your input is empty.\nStart the timer, set it to the minimum and start typing away!"),
-                    dismissButton: .default(Text("Dismiss"))
-                )
-            }
-            .alert(isPresented: $showAIGenerationAlert) {
-                Alert(
-                    title: Text("Response Error"),
-                    message: Text(errorMessage ?? "Try again later."),
-                    dismissButton: .default(Text("Got it!"))
-                )
+            .onChange(of: countDownViewModel.timerExpired) { _, expired in
+                if expired {
+                    activeAlert = .timeUp
+                }
             }
         }
     }
@@ -184,10 +168,13 @@ extension HomeView {
 
     @MainActor
     private func performSend() async {
-        showOverlay = true
+        showOverlayView = true
 
         let input = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !input.isEmpty else { return }
+        guard !input.isEmpty else {
+            showOverlayView = false
+            return
+        }
 
         isFocused = false
         resetAlerts()
@@ -200,7 +187,6 @@ extension HomeView {
                 aiAnswer = partial.content
                 withAnimation {
                     showAIGeneratedAnswer = true
-                    showAIGenerationAlert = false
                 }
             }
         } catch let error as LanguageModelSession.GenerationError {
@@ -211,15 +197,18 @@ extension HomeView {
             } else {
                 errorMessage = "Error: \(error.localizedDescription)"
             }
-            showAIGenerationAlert = true
+            activeAlert = .aiGeneration(
+                title: errorTitle ?? "Response Error",
+                message: errorMessage ?? "Try again later."
+            )
         }
-        showOverlay = false
+        showOverlayView = false
     }
 
     @MainActor
     private func resetAlerts() {
         errorMessage = nil
-        showAIGenerationAlert = false
+        activeAlert = nil
         showAIGeneratedAnswer = false
     }
 
@@ -243,11 +232,15 @@ extension HomeView {
             let base = errorMessage ?? ""
             errorMessage = base + "\n\n\(recoverySuggestion)" + "\(error.helpAnchor ?? "")"
         }
-        showAIGenerationAlert = true
+        activeAlert = .aiGeneration(
+            title: errorTitle ?? "Response Error",
+            message: errorMessage ?? "Try again later."
+        )
     }
 }
 
 #Preview {
     HomeView()
         .environment(HomeViewModel())
+        .environment(CountdownViewModel())
 }

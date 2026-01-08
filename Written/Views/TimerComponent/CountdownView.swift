@@ -8,8 +8,7 @@
 import SwiftUI
 
 struct CountdownView: View {
-    @Environment(HomeViewModel.self) var viewModel
-    @Binding var showTimeIsUpAlert: Bool
+    @Environment(CountdownViewModel.self) var viewModel
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1.0)) { context in
@@ -21,19 +20,14 @@ struct CountdownView: View {
                     .animation(.bouncy, value: remaining)
                     .monospacedDigit()
             }
-            .font(.caption).bold()
+            .font(.caption)
+            .bold()
             .foregroundStyle(.secondary)
-            .onChange(of: remaining) { _, newValue in
-                if newValue <= 0 && viewModel.timerActive && !viewModel.timerPaused {
-                    showTimeIsUpAlert = true
-                    viewModel.stopTimer()
-                }
-            }
         }
     }
 }
 
 #Preview {
-    CountdownView(showTimeIsUpAlert: .constant(false))
-        .environment(HomeViewModel())
+    CountdownView()
+        .environment(CountdownViewModel())
 }

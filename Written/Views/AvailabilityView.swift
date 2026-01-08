@@ -10,6 +10,7 @@ import SwiftUI
 
 struct AvailabilityView: View {
     @State private var homeVM = HomeViewModel()
+    @State private var countDownVM = CountdownViewModel()
     @State private var model: SystemLanguageModel?
 
     var body: some View {
@@ -18,6 +19,7 @@ struct AvailabilityView: View {
             case .available:
                 HomeView()
                     .environment(homeVM)
+                    .environment(countDownVM)
             case .unavailable(.modelNotReady):
                 ModelNotReadyView(action: {
                     model = SystemLanguageModel.default
