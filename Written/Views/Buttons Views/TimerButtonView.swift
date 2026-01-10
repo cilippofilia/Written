@@ -13,18 +13,6 @@ struct TimerButtonView: View {
     let timers: [Int] = [5, 300, 600, 900, 1200, 1500, 1800]
     
     var body: some View {
-        GlassEffectContainer {
-            Group {
-                if !viewModel.timerActive {
-                    timerMenuView
-                } else {
-                    stopButton
-                }
-            }
-        }
-    }
-
-    private var timerMenuView: some View {
         Menu {
             ForEach(timers, id: \.self) { timer in
                 Button {
@@ -38,26 +26,14 @@ struct TimerButtonView: View {
 
             Text("How long for?")
         } label: {
-            Image(systemName: "timer")
+            Image(systemName: viewModel.timerActive ? "stop.circle" : "timer")
                 .padding()
                 .frame(height: 50)
                 .foregroundStyle(.primary)
-                .contentTransition(.symbolEffect(.replace))
+                .glassEffect(.regular.interactive())
         }
-        .menuOrder(.priority)
         .buttonStyle(.plain)
-        .glassEffect(.regular.interactive())
-    }
-
-    private var stopButton: some View {
-        Button(action: {
-            viewModel.stopTimer()
-        }) {
-            Image(systemName: "stop.circle")
-        }
-        .padding()
-        .frame(height: 50)
-        .foregroundStyle(.primary)
+        .menuOrder(.priority)
         .contentTransition(.symbolEffect(.replace))
         .glassEffect(.regular.interactive())
     }

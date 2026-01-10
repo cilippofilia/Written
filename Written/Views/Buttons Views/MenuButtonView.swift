@@ -15,7 +15,10 @@ struct MenuButtonView: View {
     var body: some View {
         Group {
             Menu {
+                // TODO: ideas to implement
+                Label("Onboarding", systemImage: "book.pages")
                 Label("History", systemImage: "clock.arrow.circlepath")
+
                 Menu {
                     Picker("", selection: selectedModel) {
                         ForEach(aiModels, id: \.self) { model in
