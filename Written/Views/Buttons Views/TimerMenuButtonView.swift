@@ -14,18 +14,46 @@ struct TimerMenuButtonView: View {
     
     var body: some View {
         Group {
-            if viewModel.timerActive {
-                Button(action: {
-                    viewModel.stopTimer()
-                }) {
-                    Image(systemName: viewModel.timerActive ? "stop.circle" : "timer")
-                        .padding()
-                        .frame(height: 50)
-                        .foregroundStyle(.primary)
-                        .glassEffect(.regular.interactive())
-                        .contentTransition(.symbolEffect(.replace))
+            if viewModel.timerActive || viewModel.timerPaused {
+                HStack(spacing: 12) {
+                    if viewModel.timerPaused {
+                        Button(action: {
+                            viewModel.resumeTimer()
+                        }) {
+                            Image(systemName: "play.circle")
+                                .padding()
+                                .frame(height: 50)
+                                .foregroundStyle(.primary)
+                                .glassEffect(.regular.interactive())
+                                .contentTransition(.symbolEffect(.replace))
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        Button(action: {
+                            viewModel.pauseTimer()
+                        }) {
+                            Image(systemName: "pause.circle")
+                                .padding()
+                                .frame(height: 50)
+                                .foregroundStyle(.primary)
+                                .glassEffect(.regular.interactive())
+                                .contentTransition(.symbolEffect(.replace))
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    Button(action: {
+                        viewModel.stopTimer()
+                    }) {
+                        Image(systemName: "stop.circle")
+                            .padding()
+                            .frame(height: 50)
+                            .foregroundStyle(.primary)
+                            .glassEffect(.regular.interactive())
+                            .contentTransition(.symbolEffect(.replace))
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             } else {
                 menuView
             }

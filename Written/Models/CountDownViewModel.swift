@@ -14,6 +14,7 @@ final class CountdownViewModel {
     var timerActive = false
     var timerPaused = false
     var timerExpired = false
+    private var pausedRemaining: TimeInterval?
 
     private var expirationCheckTask: Task<Void, Never>?
 
@@ -23,23 +24,27 @@ final class CountdownViewModel {
             timerActive = true
             timerPaused = false
             timerExpired = false
+            pausedRemaining = nil
 
             startExpirationCheck()
         }
     }
 
-    // UNUSED: Not referenced in the current UI; consider removing if not needed.
     func pauseTimer() {
         withAnimation(.smooth) {
+            let remaining = timeRemaining(at: .now)
+            pausedRemaining = max(0, remaining)
             timerPaused = true
             expirationCheckTask?.cancel()
         }
     }
 
-    // UNUSED: Not referenced in the current UI; consider removing if not needed.
     func resumeTimer() {
         withAnimation(.smooth) {
+            let remaining = pausedRemaining ?? timeRemaining(at: .now)
+            endTime = Date.now.addingTimeInterval(remaining)
             timerPaused = false
+            pausedRemaining = nil
             startExpirationCheck()
         }
     }
@@ -49,11 +54,16 @@ final class CountdownViewModel {
             timerActive = false
             timerPaused = false
             endTime = nil
+            pausedRemaining = nil
+            timerExpired = false
             expirationCheckTask?.cancel()
         }
     }
 
     func timeRemaining(at date: Date) -> TimeInterval {
+        if timerPaused, let pausedRemaining {
+            return pausedRemaining
+        }
         guard let endTime else { return 0 }
         return endTime.timeIntervalSince(date)
     }
@@ -71,7 +81,7 @@ final class CountdownViewModel {
         expirationCheckTask = Task {
             while !Task.isCancelled && timerActive && !timerPaused {
                 let remaining = timeRemaining(at: .now)
-                if remaining <= 0 {
+                if remaining <= 0 && !timerPaused {
                     timerExpired = true
                     stopTimer()
                     break
@@ -81,3 +91,4 @@ final class CountdownViewModel {
         }
     }
 }
+
