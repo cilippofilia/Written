@@ -29,7 +29,7 @@ final class ChatThreadTests: XCTestCase {
 
     func testThreadPersistsWithMessages() throws {
         let schema = Schema([ChatThread.self, ChatMessage.self])
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+        let configuration = SwiftData.ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: schema, configurations: [configuration])
         let context = ModelContext(container)
 
@@ -49,5 +49,34 @@ final class ChatThreadTests: XCTestCase {
         XCTAssertEqual(Set(contents), Set(["Hello", "Hi there"]))
         let timestamps = fetched.first?.messages.map(\.timestamp) ?? []
         XCTAssertEqual(Set(timestamps), Set([timestampA, timestampB]))
+    }
+
+    func testThreadPersistsToolMetadata() throws {
+        let schema = Schema([ChatThread.self, ChatMessage.self])
+        let configuration = SwiftData.ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [configuration])
+        let context = ModelContext(container)
+
+        let source = ChatMessageSource(
+            title: "Sleep Quality and Adolescents",
+            pmid: "12345678",
+            url: "https://pubmed.ncbi.nlm.nih.gov/12345678/"
+        )
+        let message = ChatMessage(
+            content: "Here is the summary.",
+            isUser: false,
+            toolNames: ["PubMed"],
+            toolSources: [source]
+        )
+        let thread = ChatThread(title: "Tool Thread", messages: [message])
+
+        context.insert(thread)
+        try context.save()
+
+        let fetched = try context.fetch(FetchDescriptor<ChatThread>())
+        let storedMessage = try XCTUnwrap(fetched.first?.messages.first)
+
+        XCTAssertEqual(storedMessage.toolNames, ["PubMed"])
+        XCTAssertEqual(storedMessage.toolSources, [source])
     }
 }

@@ -39,8 +39,9 @@ struct ModelConfiguration: Equatable {
     5. **Research & Sources (PubMed Tool)**
        - For any health, medical, clinical, biomedical, or pharmacology topic, call the PubMed tool before responding
        - Do NOT use the tool for personal journaling, emotional support, or purely reflective writing
-       - If using the tool, extract 3-6 key concepts or keywords from the prompt
-       - Call the PubMed tool with a concise query
+       - If the request is too vague to search reliably, ask a clarifying question before using the tool
+       - When using the tool, provide a structured request: topic, population if known, intervention or exposure if known, outcome if known, and study preference if the user implies one
+       - Do NOT send a loose keyword bag or a broad free-text search string
        - Synthesize the response using the tool results; do not paste raw tool output
        - Do NOT include sources or links in the response; the app will add them if tool results were used
 

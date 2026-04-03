@@ -50,4 +50,94 @@ final class ChatModelTests: XCTestCase {
 
         XCTAssertNotEqual(modelA, modelB)
     }
+
+    func testChatMessageDefaultsToNoToolMetadata() {
+        let message = ChatMessage(content: "Hello", isUser: false)
+
+        XCTAssertTrue(message.toolNames.isEmpty)
+        XCTAssertTrue(message.toolSources.isEmpty)
+    }
+
+    func testMedicalPromptAnalyzerDefaultsToHumansWhenPopulationIsMissing() {
+        let question = MedicalPromptAnalyzer.clarifyingQuestion(for: "Is magnesium good for sleep?")
+
+        XCTAssertNil(question)
+    }
+
+    func testMedicalPromptAnalyzerDoesNotInterruptSpecificPrompt() {
+        let question = MedicalPromptAnalyzer.clarifyingQuestion(
+            for: "Does magnesium glycinate improve sleep in healthy adults?"
+        )
+
+        XCTAssertNil(question)
+    }
+
+    func testPubMedQueryIncludesStructuredFieldsAndFilters() {
+        let request = PubMedSearchRequest(
+            arguments: PubMedSearchTool.Arguments(
+                topic: "sleep quality",
+                population: "healthy adults",
+                interventionOrExposure: "magnesium glycinate",
+                outcome: "improve sleep",
+                studyPreference: .trial,
+                includeAbstracts: true,
+                maxResults: 3,
+                maxCharacters: 4000
+            )
+        )
+
+        let query = PubMedSearchTool.query(for: request)
+
+        XCTAssertEqual(
+            query,
+            "(sleep quality) AND (magnesium glycinate) AND (improve sleep) AND (healthy adults) AND humans[mh] AND (randomized controlled trial[pt] OR clinical trial[pt])"
+        )
+    }
+
+    func testPubMedRerankingPrefersAdultHumanReviewForBroadQuestion() {
+        let request = PubMedSearchRequest(
+            arguments: PubMedSearchTool.Arguments(
+                topic: "sleep quality",
+                population: "healthy adults",
+                interventionOrExposure: "magnesium glycinate",
+                outcome: "improve sleep",
+                studyPreference: .review,
+                includeAbstracts: true,
+                maxResults: 1,
+                maxCharacters: 4000
+            )
+        )
+
+        let adultReview = PubMedArticle(
+            pmid: "1",
+            title: "Magnesium glycinate and sleep quality in healthy adults",
+            journal: "Sleep Medicine Reviews",
+            year: "2024",
+            abstractSections: ["Systematic review of human studies on sleep quality in adults."],
+            publicationTypes: ["Systematic Review"],
+            speciesTags: ["Humans"]
+        )
+        let pediatricAnimalStudy = PubMedArticle(
+            pmid: "2",
+            title: "Magnesium and sleep in adolescent mice",
+            journal: "Experimental Sleep",
+            year: "2025",
+            abstractSections: ["Animal study in adolescent mice."],
+            publicationTypes: ["Journal Article"],
+            speciesTags: ["Animals"]
+        )
+
+        let ranked = PubMedSearchTool.rankedArticles(from: [pediatricAnimalStudy, adultReview], for: request)
+
+        XCTAssertEqual(ranked.first?.pmid, "1")
+    }
+
+    func testMedicalPromptAnalyzerStillAsksWhenTopicIsTooUnspecific() {
+        let question = MedicalPromptAnalyzer.clarifyingQuestion(for: "Is this supplement good?")
+
+        XCTAssertEqual(
+            question,
+            "To look up the right PubMed evidence, what specific treatment, supplement, symptom, or condition are you asking about?"
+        )
+    }
 }

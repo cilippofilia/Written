@@ -57,7 +57,10 @@ struct ChatView: View {
                 .multilineTextAlignment(.leading)
                 .lineLimit(3)
 
-            MessageListView(messages: messages, isResponding: isResponding)
+            MessageListView(
+                messages: messages,
+                isResponding: isResponding
+            )
 
             PromptInputView(
                 text: $input,
@@ -92,6 +95,12 @@ struct ChatView: View {
         let prompt = input.trimmed
         messages.append(ChatMessage(content: prompt, isUser: true))
         input = ""
+
+        if let clarifyingQuestion = MedicalPromptAnalyzer.clarifyingQuestion(for: prompt) {
+            messages.append(ChatMessage(content: clarifyingQuestion, isUser: false))
+            return
+        }
+
         session = compactedSessionFromMessages(excludingLastAssistant: false)
 
         Task {
@@ -113,9 +122,9 @@ struct ChatView: View {
         isResponding = true
         defer { isResponding = false }
 
-        let content = await generateResponseWithRecovery(for: prompt)
-        if let content {
-            messages.append(ChatMessage(content: content, isUser: false))
+        let response = await generateResponseWithRecovery(for: prompt)
+        if let response {
+            messages.append(makeAssistantMessage(from: response))
         } else {
             appendRecoveryFailureMessage()
         }
@@ -137,6 +146,7 @@ struct ChatView: View {
         let timestamp = messages[messageIndex].timestamp
 
         do {
+            pubMedStore.reset()
             for try await partial in session.streamResponse(to: prompt, options: configuration.generationOptions) {
                 withAnimation(.default) {
                     messages[messageIndex] = ChatMessage(
@@ -147,15 +157,10 @@ struct ChatView: View {
                     )
                 }
             }
-            let sanitized = sanitizedResponse(messages[messageIndex].content)
-            if isRefusalMessage(sanitized), let recovered = await recoverAfterFailure(for: prompt) {
-                messages[messageIndex] = ChatMessage(
-                    id: messageId,
-                    content: recovered,
-                    isUser: false,
-                    timestamp: timestamp
-                )
-            } else if isRefusalMessage(sanitized) {
+            let response = buildAssistantResponse(from: messages[messageIndex].content)
+            if isRefusalMessage(response.content), let recovered = await recoverAfterFailure(for: prompt) {
+                messages[messageIndex] = makeAssistantMessage(from: recovered, id: messageId, timestamp: timestamp)
+            } else if isRefusalMessage(response.content) {
                 messages[messageIndex] = ChatMessage(
                     id: messageId,
                     content: recoveryFailureMessage,
@@ -163,22 +168,11 @@ struct ChatView: View {
                     timestamp: timestamp
                 )
             } else {
-                let finalContent = appendSourcesIfNeeded(to: sanitized)
-                messages[messageIndex] = ChatMessage(
-                    id: messageId,
-                    content: finalContent,
-                    isUser: false,
-                    timestamp: timestamp
-                )
+                messages[messageIndex] = makeAssistantMessage(from: response, id: messageId, timestamp: timestamp)
             }
         } catch {
             if let recovered = await recoverAfterFailure(for: prompt) {
-                messages[messageIndex] = ChatMessage(
-                    id: messageId,
-                    content: recovered,
-                    isUser: false,
-                    timestamp: timestamp
-                )
+                messages[messageIndex] = makeAssistantMessage(from: recovered, id: messageId, timestamp: timestamp)
             } else {
                 messages[messageIndex] = ChatMessage(
                     id: messageId,
@@ -204,18 +198,18 @@ struct ChatView: View {
             try await Task.sleep(for: .seconds(2))
             isResponding = true
 
-            guard let content = await generateResponseWithRecovery(for: prompt) else {
+            guard let response = await generateResponseWithRecovery(for: prompt) else {
                 appendRecoveryFailureMessage()
                 isResponding = false
                 return
             }
-            let simulatedTime = Duration.seconds(1 + Double(content.count) * 0.02)
+            let simulatedTime = Duration.seconds(1 + Double(response.content.count) * 0.02)
 
             if ContinuousClock.now - startTime < simulatedTime {
                 try await Task.sleep(for: simulatedTime - (.now - startTime))
             }
 
-            messages.append(ChatMessage(content: content, isUser: false))
+            messages.append(makeAssistantMessage(from: response))
         } catch {
             appendErrorMessage()
         }
@@ -244,29 +238,15 @@ struct ChatView: View {
     }
 
     @MainActor
-    private func appendSourcesIfNeeded(to response: String) -> String {
-        guard pubMedStore.wasUsed, pubMedStore.sources.isEmpty == false else {
-            return response
-        }
-
-        let sources = pubMedStore.sources.prefix(2).map { source in
-            let safeTitle = source.title.replacing("\n", with: " ").trimmingCharacters(in: .whitespacesAndNewlines)
-            return "\(safeTitle) - PMID: \(source.pmid) - \(source.url)"
-        }
-
-        let sourcesLine = "Sources: " + sources.joined(separator: "; ")
-        return response.isEmpty ? sourcesLine : "\(response)\n\n\(sourcesLine)"
-    }
-
-    @MainActor
-    private func generateResponseWithRecovery(for prompt: String) async -> String? {
+    private func generateResponseWithRecovery(for prompt: String) async -> AssistantResponse? {
         do {
+            pubMedStore.reset()
             let response = try await session.respond(to: prompt, options: configuration.generationOptions)
-            let content = appendSourcesIfNeeded(to: sanitizedResponse(response.content))
-            if isRefusalMessage(content) {
+            let assistantResponse = buildAssistantResponse(from: response.content)
+            if isRefusalMessage(assistantResponse.content) {
                 return await recoverAfterFailure(for: prompt)
             }
-            return content
+            return assistantResponse
         } catch LanguageModelSession.GenerationError.exceededContextWindowSize {
             return await recoverAfterFailure(for: prompt)
         } catch LanguageModelSession.GenerationError.guardrailViolation {
@@ -277,12 +257,13 @@ struct ChatView: View {
     }
 
     @MainActor
-    private func recoverAfterFailure(for prompt: String) async -> String? {
+    private func recoverAfterFailure(for prompt: String) async -> AssistantResponse? {
         session = compactedSessionFromMessages(excludingLastAssistant: true)
         do {
+            pubMedStore.reset()
             let response = try await session.respond(to: prompt, options: configuration.generationOptions)
-            let content = appendSourcesIfNeeded(to: sanitizedResponse(response.content))
-            return isRefusalMessage(content) ? nil : content
+            let assistantResponse = buildAssistantResponse(from: response.content)
+            return isRefusalMessage(assistantResponse.content) ? nil : assistantResponse
         } catch {
             return nil
         }
@@ -345,27 +326,52 @@ struct ChatView: View {
     @MainActor
     private func isRefusalMessage(_ content: String) -> Bool {
         let normalized = content.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let refusalPhrases = [
-            "i can't help",
-            "i cannot help",
-            "i can't assist",
-            "i cannot assist",
-            "i'm sorry, but i can't",
-            "i'm sorry, but i cannot",
-            "i'm sorry, i can't",
-            "i'm sorry, i cannot",
-            "i'm sorry, but i can't assist",
-            "i'm sorry, but i cannot assist",
-            "i can't provide that",
-            "i cannot provide that",
-            "i can't help with that",
-            "i cannot help with that"
-        ]
-        return refusalPhrases.contains { normalized.localizedStandardContains($0) }
+        return Self.refusalPhrases.contains { normalized.localizedStandardContains($0) }
     }
 
     private var recoveryFailureMessage: String {
         "I couldn't continue with that request. Try rephrasing, shortening the message, or starting a new chat."
+    }
+
+    @MainActor
+    private func buildAssistantResponse(from content: String) -> AssistantResponse {
+        AssistantResponse(
+            content: sanitizedResponse(content),
+            toolNames: currentToolNames(),
+            toolSources: currentToolSources()
+        )
+    }
+
+    @MainActor
+    private func currentToolNames() -> [String] {
+        pubMedStore.wasUsed ? ["PubMed"] : []
+    }
+
+    @MainActor
+    private func currentToolSources() -> [ChatMessageSource] {
+        pubMedStore.sources.map { source in
+            ChatMessageSource(
+                title: source.title.replacing("\n", with: " ").trimmingCharacters(in: .whitespacesAndNewlines),
+                pmid: source.pmid,
+                url: source.url
+            )
+        }
+    }
+
+    @MainActor
+    private func makeAssistantMessage(
+        from response: AssistantResponse,
+        id: UUID = UUID(),
+        timestamp: Date = .now
+    ) -> ChatMessage {
+        ChatMessage(
+            id: id,
+            content: response.content,
+            isUser: false,
+            timestamp: timestamp,
+            toolNames: response.toolNames,
+            toolSources: response.toolSources
+        )
     }
 
     @MainActor
@@ -425,6 +431,104 @@ struct ChatView: View {
             }
             return $0.id.uuidString < $1.id.uuidString
         }
+    }
+
+    private static let refusalPhrases = [
+        "i can't help",
+        "i cannot help",
+        "i can't assist",
+        "i cannot assist",
+        "i'm sorry, but i can't",
+        "i'm sorry, but i cannot",
+        "i'm sorry, i can't",
+        "i'm sorry, i cannot",
+        "i'm sorry, but i can't assist",
+        "i'm sorry, but i cannot assist",
+        "i can't provide that",
+        "i cannot provide that",
+        "i can't help with that",
+        "i cannot help with that"
+    ]
+}
+
+private struct AssistantResponse {
+    let content: String
+    let toolNames: [String]
+    let toolSources: [ChatMessageSource]
+}
+
+enum MedicalPromptAnalyzer {
+    private static let medicalKeywords = Set([
+        "adhd", "anxiety", "arthritis", "asthma", "blood", "bp", "cancer", "cholesterol",
+        "clinical", "cortisol", "creatine", "depression", "diabetes", "dose", "dosage",
+        "drug", "fatigue", "fever", "glucose", "headache", "health", "heart", "hypertension",
+        "ibuprofen", "insomnia", "kidney", "liver", "magnesium", "medical", "medication",
+        "melatonin", "migraine", "pain", "pharmacology", "pressure", "protein", "renal",
+        "sertraline", "sleep", "supplement", "symptom", "therapy", "treatment", "vitamin"
+    ])
+
+    private static let populationKeywords = Set([
+        "adult", "adults", "aged", "athlete", "athletes", "boy", "boys", "child", "children",
+        "elderly", "female", "females", "girl", "girls", "healthy", "healthy-adults", "infant",
+        "infants", "male", "males", "men", "older", "patient", "patients", "people", "pregnant",
+        "teen", "teenager", "teenagers", "women", "woman"
+    ])
+
+    private static let interventionKeywords = Set([
+        "acetaminophen", "caffeine", "coffee", "creatine", "drug", "exercise", "ibuprofen",
+        "magnesium", "medication", "melatonin", "metformin", "protein", "sertraline",
+        "supplement", "therapy", "treatment", "vitamin"
+    ])
+
+    private static let genericInterventionKeywords = Set([
+        "drug", "medication", "protein", "supplement", "therapy", "treatment", "vitamin"
+    ])
+
+    private static let outcomeKeywords = Set([
+        "bad", "benefit", "benefits", "cause", "causes", "effective", "effectiveness",
+        "harm", "harmful", "help", "helps", "improve", "improves", "improving", "reduce",
+        "reduces", "risk", "risks", "safe", "safety", "side", "worse", "worsen"
+    ])
+
+    private static let conditionKeywords = Set([
+        "adhd", "anxiety", "arthritis", "asthma", "blood", "cancer", "cholesterol", "depression",
+        "diabetes", "fatigue", "headache", "hypertension", "insomnia", "kidney", "liver",
+        "migraine", "pain", "pressure", "renal", "sleep", "stress"
+    ])
+
+    static func clarifyingQuestion(for prompt: String) -> String? {
+        let tokens = normalizedTokens(from: prompt)
+        guard isMedicalPrompt(tokens: tokens) else { return nil }
+
+        let hasPopulation = tokens.contains(where: populationKeywords.contains)
+        let hasIntervention = tokens.contains(where: interventionKeywords.contains)
+        let hasOutcome = tokens.contains(where: outcomeKeywords.contains) || prompt.contains("?")
+        let hasCondition = tokens.contains(where: conditionKeywords.contains)
+        let hasSpecificIntervention = tokens.contains {
+            interventionKeywords.contains($0) && genericInterventionKeywords.contains($0) == false
+        }
+        if hasSpecificIntervention == false && hasCondition == false {
+            return "To look up the right PubMed evidence, what specific treatment, supplement, symptom, or condition are you asking about?"
+        }
+
+        let populatedDimensions = [hasPopulation, hasIntervention, hasOutcome, hasCondition]
+            .filter { $0 }
+            .count
+
+        guard populatedDimensions < 2 else { return nil }
+
+        return "To look up the right PubMed evidence, what outcome should I focus on, for example effectiveness, safety, side effects, or risk?"
+    }
+
+    private static func isMedicalPrompt(tokens: [String]) -> Bool {
+        tokens.contains(where: medicalKeywords.contains)
+    }
+
+    private static func normalizedTokens(from prompt: String) -> [String] {
+        prompt
+            .lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { $0.isEmpty == false }
     }
 }
 
