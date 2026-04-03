@@ -24,11 +24,12 @@ struct ModelSettingsSheet: View {
         Form {
             #if DEBUG
             InstructionSection(configuration: $configuration)
-            ResponseSection(configuration: $configuration, responseType: $responseType)
             SamplingSection(configuration: $configuration)
+            ResponseSection(configuration: $configuration, responseType: $responseType)
             #endif
 
             AppInfoSection()
+
             Section {
                 let currentLanguage = Locale.current.language
                 let isSupported = model.supportedLanguages.contains(currentLanguage)

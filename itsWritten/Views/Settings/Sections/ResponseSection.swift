@@ -25,6 +25,7 @@ struct ResponseSection: View {
             .pickerStyle(.segmented)
         } header: {
             Text("Response")
+                .padding(.top)
         } footer: {
             Text("Temperature: Controls response randomness where 0 is random, 1 is deterministic.")
         }
