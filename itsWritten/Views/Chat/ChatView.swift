@@ -70,13 +70,10 @@ struct ChatView: View {
             )
         }
         .onChange(of: configuration.instructions) {
-            if configuration.instructions.isReallyEmpty {
-                session = AppLanguageModel.session()
-            } else {
-                session = AppLanguageModel.session(instructions: configuration.instructions)
-            }
+            session = configuredSession()
         }
         .onAppear {
+            session = configuredSession()
             seedConversationIfNeeded()
         }
         .onDisappear {
@@ -96,7 +93,9 @@ struct ChatView: View {
         messages.append(ChatMessage(content: prompt, isUser: true))
         input = ""
 
-        if let clarifyingQuestion = MedicalPromptAnalyzer.clarifyingQuestion(for: prompt) {
+        let resolvedPrompt = resolvedMedicalPrompt(for: prompt)
+
+        if let clarifyingQuestion = MedicalPromptAnalyzer.clarifyingQuestion(for: resolvedPrompt) {
             messages.append(ChatMessage(content: clarifyingQuestion, isUser: false))
             return
         }
@@ -105,9 +104,9 @@ struct ChatView: View {
 
         Task {
             switch responseType {
-            case .standard: await generateStandardResponse(for: prompt)
-            case .streaming: await generateStreamingResponse(for: prompt)
-            case .human: await generateHumanResponse(for: prompt)
+            case .standard: await generateStandardResponse(for: resolvedPrompt)
+            case .streaming: await generateStreamingResponse(for: resolvedPrompt)
+            case .human: await generateHumanResponse(for: resolvedPrompt)
             }
         }
     }
@@ -140,46 +139,90 @@ struct ChatView: View {
         isResponding = true
         defer { isResponding = false }
 
-        let messageIndex = messages.count
-        messages.append(ChatMessage(content: "", isUser: false))
-        let messageId = messages[messageIndex].id
-        let timestamp = messages[messageIndex].timestamp
+        let messageId = UUID()
+        let timestamp = Date()
+        var messageIndex: Int?
+        var streamedContent = ""
 
         do {
-            pubMedStore.reset()
-            for try await partial in session.streamResponse(to: prompt, options: configuration.generationOptions) {
-                withAnimation(.default) {
-                    messages[messageIndex] = ChatMessage(
-                        id: messageId,
-                        content: partial.content,
-                        isUser: false,
-                        timestamp: timestamp
-                    )
+            let preparedRequest = await prepareModelRequest(for: prompt)
+            switch preparedRequest {
+            case .assistantResponse(let response):
+                messages.append(makeAssistantMessage(from: response, id: messageId, timestamp: timestamp))
+                return
+            case .prompt(let preparedPrompt):
+                for try await partial in session.streamResponse(to: preparedPrompt, options: configuration.generationOptions) {
+                    streamedContent = partial.content
+
+                    withAnimation(.default) {
+                        if let messageIndex {
+                            messages[messageIndex] = ChatMessage(
+                                id: messageId,
+                                content: partial.content,
+                                isUser: false,
+                                timestamp: timestamp
+                            )
+                        } else {
+                            messages.append(
+                                ChatMessage(
+                                    id: messageId,
+                                    content: partial.content,
+                                    isUser: false,
+                                    timestamp: timestamp
+                                )
+                            )
+                            messageIndex = messages.endIndex - 1
+                        }
+                    }
                 }
             }
-            let response = buildAssistantResponse(from: messages[messageIndex].content)
+            let response = buildAssistantResponse(from: streamedContent)
             if isRefusalMessage(response.content), let recovered = await recoverAfterFailure(for: prompt) {
-                messages[messageIndex] = makeAssistantMessage(from: recovered, id: messageId, timestamp: timestamp)
+                if let messageIndex {
+                    messages[messageIndex] = makeAssistantMessage(from: recovered, id: messageId, timestamp: timestamp)
+                } else {
+                    messages.append(makeAssistantMessage(from: recovered, id: messageId, timestamp: timestamp))
+                }
             } else if isRefusalMessage(response.content) {
-                messages[messageIndex] = ChatMessage(
+                let recoveryMessage = ChatMessage(
                     id: messageId,
                     content: recoveryFailureMessage,
                     isUser: false,
                     timestamp: timestamp
                 )
+                if let messageIndex {
+                    messages[messageIndex] = recoveryMessage
+                } else {
+                    messages.append(recoveryMessage)
+                }
             } else {
-                messages[messageIndex] = makeAssistantMessage(from: response, id: messageId, timestamp: timestamp)
+                let assistantMessage = makeAssistantMessage(from: response, id: messageId, timestamp: timestamp)
+                if let messageIndex {
+                    messages[messageIndex] = assistantMessage
+                } else {
+                    messages.append(assistantMessage)
+                }
             }
         } catch {
             if let recovered = await recoverAfterFailure(for: prompt) {
-                messages[messageIndex] = makeAssistantMessage(from: recovered, id: messageId, timestamp: timestamp)
+                let assistantMessage = makeAssistantMessage(from: recovered, id: messageId, timestamp: timestamp)
+                if let messageIndex {
+                    messages[messageIndex] = assistantMessage
+                } else {
+                    messages.append(assistantMessage)
+                }
             } else {
-                messages[messageIndex] = ChatMessage(
+                let recoveryMessage = ChatMessage(
                     id: messageId,
                     content: recoveryFailureMessage,
                     isUser: false,
                     timestamp: timestamp
                 )
+                if let messageIndex {
+                    messages[messageIndex] = recoveryMessage
+                } else {
+                    messages.append(recoveryMessage)
+                }
             }
         }
     }
@@ -240,13 +283,18 @@ struct ChatView: View {
     @MainActor
     private func generateResponseWithRecovery(for prompt: String) async -> AssistantResponse? {
         do {
-            pubMedStore.reset()
-            let response = try await session.respond(to: prompt, options: configuration.generationOptions)
-            let assistantResponse = buildAssistantResponse(from: response.content)
-            if isRefusalMessage(assistantResponse.content) {
-                return await recoverAfterFailure(for: prompt)
+            let preparedRequest = await prepareModelRequest(for: prompt)
+            switch preparedRequest {
+            case .assistantResponse(let response):
+                return response
+            case .prompt(let preparedPrompt):
+                let response = try await session.respond(to: preparedPrompt, options: configuration.generationOptions)
+                let assistantResponse = buildAssistantResponse(from: response.content)
+                if isRefusalMessage(assistantResponse.content) {
+                    return await recoverAfterFailure(for: prompt)
+                }
+                return assistantResponse
             }
-            return assistantResponse
         } catch LanguageModelSession.GenerationError.exceededContextWindowSize {
             return await recoverAfterFailure(for: prompt)
         } catch LanguageModelSession.GenerationError.guardrailViolation {
@@ -260,10 +308,15 @@ struct ChatView: View {
     private func recoverAfterFailure(for prompt: String) async -> AssistantResponse? {
         session = compactedSessionFromMessages(excludingLastAssistant: true)
         do {
-            pubMedStore.reset()
-            let response = try await session.respond(to: prompt, options: configuration.generationOptions)
-            let assistantResponse = buildAssistantResponse(from: response.content)
-            return isRefusalMessage(assistantResponse.content) ? nil : assistantResponse
+            let preparedRequest = await prepareModelRequest(for: prompt)
+            switch preparedRequest {
+            case .assistantResponse(let response):
+                return response
+            case .prompt(let preparedPrompt):
+                let response = try await session.respond(to: preparedPrompt, options: configuration.generationOptions)
+                let assistantResponse = buildAssistantResponse(from: response.content)
+                return isRefusalMessage(assistantResponse.content) ? nil : assistantResponse
+            }
         } catch {
             return nil
         }
@@ -340,6 +393,90 @@ struct ChatView: View {
             toolNames: currentToolNames(),
             toolSources: currentToolSources()
         )
+    }
+
+    @MainActor
+    private func prepareModelRequest(for prompt: String) async -> PreparedModelRequest {
+        pubMedStore.reset()
+
+        guard let searchRequest = MedicalPromptAnalyzer.searchRequest(for: prompt) else {
+            return .prompt(prompt)
+        }
+
+        do {
+            let bundle = try await PubMedSearchTool.search(request: searchRequest)
+            pubMedStore.record(sources: bundle.sources)
+            return .prompt(synthesisPrompt(for: prompt, bundle: bundle))
+        } catch PubMedSearchError.noResults {
+            return .assistantResponse(
+                AssistantResponse(
+                    content: "I couldn't find relevant human PubMed evidence for that question. Try being more specific about the condition, treatment, or outcome you want to check.",
+                    toolNames: [],
+                    toolSources: []
+                )
+            )
+        } catch PubMedSearchError.rateLimited {
+            return .assistantResponse(
+                AssistantResponse(
+                    content: "PubMed is temporarily rate-limiting requests, so I couldn't verify that with research right now. Try again in a moment.",
+                    toolNames: [],
+                    toolSources: []
+                )
+            )
+        } catch {
+            return .assistantResponse(
+                AssistantResponse(
+                    content: "I couldn't retrieve PubMed evidence right now, so I don't want to guess. Try again in a moment or rephrase the question more specifically.",
+                    toolNames: [],
+                    toolSources: []
+                )
+            )
+        }
+    }
+
+    private func synthesisPrompt(for prompt: String, bundle: PubMedEvidenceBundle) -> String {
+        """
+        User question:
+        \(prompt)
+
+        PubMed evidence:
+        \(PubMedSearchTool.evidenceSummary(for: bundle))
+
+        Instructions:
+        - Answer the user's question using only the evidence above for factual medical claims.
+        - If the evidence is limited, mixed, indirect, or does not fully answer the question, say so plainly.
+        - Do not mention search queries or URLs in the body of the answer.
+        """
+    }
+
+    private func configuredSession() -> LanguageModelSession {
+        if configuration.instructions.isReallyEmpty {
+            return AppLanguageModel.session()
+        }
+        return AppLanguageModel.session(instructions: configuration.instructions)
+    }
+
+    private func resolvedMedicalPrompt(for prompt: String) -> String {
+        guard MedicalPromptAnalyzer.isMedicalPromptText(prompt) == false else {
+            return prompt
+        }
+        guard messages.count >= 3 else { return prompt }
+
+        let assistantIndex = messages.count - 2
+        let assistantMessage = messages[assistantIndex]
+        guard assistantMessage.isUser == false, MedicalPromptAnalyzer.isClarifyingQuestion(assistantMessage.content) else {
+            return prompt
+        }
+
+        for index in stride(from: assistantIndex - 1, through: 0, by: -1) {
+            let candidate = messages[index]
+            guard candidate.isUser else { continue }
+            if MedicalPromptAnalyzer.isMedicalPromptText(candidate.content) {
+                return "\(candidate.content) \(prompt)"
+            }
+        }
+
+        return prompt
     }
 
     @MainActor
@@ -457,6 +594,11 @@ private struct AssistantResponse {
     let toolSources: [ChatMessageSource]
 }
 
+private enum PreparedModelRequest {
+    case prompt(String)
+    case assistantResponse(AssistantResponse)
+}
+
 enum MedicalPromptAnalyzer {
     private static let medicalKeywords = Set([
         "adhd", "anxiety", "arthritis", "asthma", "blood", "bp", "cancer", "cholesterol",
@@ -520,8 +662,57 @@ enum MedicalPromptAnalyzer {
         return "To look up the right PubMed evidence, what outcome should I focus on, for example effectiveness, safety, side effects, or risk?"
     }
 
+    static func searchRequest(for prompt: String) -> PubMedSearchRequest? {
+        let tokens = normalizedTokens(from: prompt)
+        guard isMedicalPrompt(tokens: tokens) else { return nil }
+
+        let normalizedPrompt = prompt.lowercased()
+        let intervention = firstMatchingPhrase(in: normalizedPrompt, candidates: interventionPhrases) ?? ""
+        let topic = firstMatchingPhrase(in: normalizedPrompt, candidates: conditionPhrases)
+            ?? firstMatchingPhrase(in: normalizedPrompt, candidates: symptomPhrases)
+            ?? (intervention.isEmpty == false ? intervention : prompt.trimmingCharacters(in: .whitespacesAndNewlines))
+        let population = firstMatchingPhrase(in: normalizedPrompt, candidates: populationPhrases) ?? ""
+        let outcome = firstMatchingPhrase(in: normalizedPrompt, candidates: outcomePhrases) ?? ""
+        let studyPreference: PubMedSearchTool.StudyPreference
+
+        if normalizedPrompt.localizedStandardContains("meta-analysis")
+            || normalizedPrompt.localizedStandardContains("systematic review")
+            || normalizedPrompt.localizedStandardContains("review") {
+            studyPreference = .review
+        } else if normalizedPrompt.localizedStandardContains("trial")
+            || normalizedPrompt.localizedStandardContains("randomized") {
+            studyPreference = .trial
+        } else if normalizedPrompt.localizedStandardContains("cohort")
+            || normalizedPrompt.localizedStandardContains("observational") {
+            studyPreference = .observational
+        } else {
+            studyPreference = .review
+        }
+
+        return PubMedSearchRequest(
+            arguments: PubMedSearchTool.Arguments(
+                topic: topic,
+                population: population.isEmpty ? nil : population,
+                interventionOrExposure: intervention.isEmpty ? nil : intervention,
+                outcome: outcome.isEmpty ? nil : outcome,
+                studyPreference: studyPreference,
+                includeAbstracts: true,
+                maxResults: 3,
+                maxCharacters: 6000
+            )
+        )
+    }
+
     private static func isMedicalPrompt(tokens: [String]) -> Bool {
         tokens.contains(where: medicalKeywords.contains)
+    }
+
+    static func isMedicalPromptText(_ prompt: String) -> Bool {
+        isMedicalPrompt(tokens: normalizedTokens(from: prompt))
+    }
+
+    static func isClarifyingQuestion(_ text: String) -> Bool {
+        text.localizedStandardContains("To look up the right PubMed evidence")
     }
 
     private static func normalizedTokens(from prompt: String) -> [String] {
@@ -530,6 +721,33 @@ enum MedicalPromptAnalyzer {
             .components(separatedBy: CharacterSet.alphanumerics.inverted)
             .filter { $0.isEmpty == false }
     }
+
+    private static func firstMatchingPhrase(in prompt: String, candidates: [String]) -> String? {
+        candidates.first { prompt.localizedStandardContains($0) }
+    }
+
+    private static let populationPhrases = [
+        "healthy adults", "adults", "children", "older adults", "teenagers", "pregnant women", "patients"
+    ]
+
+    private static let interventionPhrases = [
+        "magnesium glycinate", "magnesium", "melatonin", "creatine", "coffee", "caffeine",
+        "ibuprofen", "acetaminophen", "sertraline", "metformin", "exercise"
+    ]
+
+    private static let conditionPhrases = [
+        "sleep quality", "kidney function", "kidney safety", "anxiety", "adhd", "insomnia",
+        "blood pressure", "cholesterol", "migraine", "depression", "diabetes", "fatigue"
+    ]
+
+    private static let symptomPhrases = [
+        "sleep", "pain", "headache", "stress", "blood pressure", "kidney"
+    ]
+
+    private static let outcomePhrases = [
+        "improve sleep", "sleep quality", "kidney safety", "side effects", "safety",
+        "effectiveness", "risk", "benefit", "benefits", "harm", "harmful"
+    ]
 }
 
 #Preview {

@@ -49,30 +49,45 @@ struct PubMedSearchTool: Tool {
 
     func call(arguments: Arguments) async throws -> String {
         let request = PubMedSearchRequest(arguments: arguments)
+        let bundle = try await Self.search(request: request)
+        Self.recordSources(from: bundle.articles)
+        return Self.format(articles: bundle.articles, query: bundle.query, request: request)
+    }
+
+    static func search(request: PubMedSearchRequest) async throws -> PubMedEvidenceBundle {
         guard request.topic.isEmpty == false else {
-            return "No medical topic provided."
+            throw PubMedSearchError.missingTopic
         }
 
         let candidateFetchCount = min(max((request.maxResults * 4), 8), 20)
-        let ids = try await fetchPubMedIds(for: request, candidateFetchCount: candidateFetchCount)
-        guard ids.isEmpty == false else {
-            return "No results found for topic: \(request.topic)"
+        let candidateQueries = fallbackQueries(for: request)
+
+        for query in candidateQueries {
+            let ids = try await fetchPubMedIds(for: query, candidateFetchCount: candidateFetchCount)
+            guard ids.isEmpty == false else { continue }
+
+            let articles = try await fetchArticles(ids: ids)
+            let selectedArticles = rankedArticles(from: articles, for: request)
+            guard selectedArticles.isEmpty == false else { continue }
+
+            return PubMedEvidenceBundle(
+                request: request,
+                query: query,
+                articles: selectedArticles
+            )
         }
 
-        let articles = try await fetchArticles(ids: ids)
-        let selectedArticles = Self.rankedArticles(from: articles, for: request)
-        recordSources(from: selectedArticles)
-        return format(articles: selectedArticles, request: request)
+        throw PubMedSearchError.noResults
     }
 
-    private func fetchPubMedIds(for request: PubMedSearchRequest, candidateFetchCount: Int) async throws -> [String] {
+    private static func fetchPubMedIds(for query: String, candidateFetchCount: Int) async throws -> [String] {
         var components = URLComponents()
         components.scheme = "https"
         components.host = "eutils.ncbi.nlm.nih.gov"
         components.path = "/entrez/eutils/esearch.fcgi"
         components.queryItems = [
             URLQueryItem(name: "db", value: "pubmed"),
-            URLQueryItem(name: "term", value: Self.query(for: request)),
+            URLQueryItem(name: "term", value: query),
             URLQueryItem(name: "retmax", value: String(candidateFetchCount)),
             URLQueryItem(name: "retmode", value: "json"),
             URLQueryItem(name: "sort", value: "relevance")
@@ -92,7 +107,7 @@ struct PubMedSearchTool: Tool {
         return decoded.esearchresult.idlist
     }
 
-    private func fetchArticles(ids: [String]) async throws -> [PubMedArticle] {
+    private static func fetchArticles(ids: [String]) async throws -> [PubMedArticle] {
         var components = URLComponents()
         components.scheme = "https"
         components.host = "eutils.ncbi.nlm.nih.gov"
@@ -144,6 +159,48 @@ struct PubMedSearchTool: Tool {
         }
 
         return clauses.joined(separator: " AND ")
+    }
+
+    private static func fallbackQueries(for request: PubMedSearchRequest) -> [String] {
+        var queries = [query(for: request)]
+
+        let noStudyPreference = PubMedSearchRequest(
+            topic: request.topic,
+            population: request.population,
+            interventionOrExposure: request.interventionOrExposure,
+            outcome: request.outcome,
+            studyPreference: .any,
+            includeAbstracts: request.includeAbstracts,
+            maxResults: request.maxResults,
+            maxCharacters: request.maxCharacters
+        )
+        queries.append(query(for: noStudyPreference))
+
+        let broaderWithoutOutcome = PubMedSearchRequest(
+            topic: request.topic,
+            population: request.population,
+            interventionOrExposure: request.interventionOrExposure,
+            outcome: "",
+            studyPreference: .any,
+            includeAbstracts: request.includeAbstracts,
+            maxResults: request.maxResults,
+            maxCharacters: request.maxCharacters
+        )
+        queries.append(query(for: broaderWithoutOutcome))
+
+        let broadest = PubMedSearchRequest(
+            topic: request.topic,
+            population: "",
+            interventionOrExposure: request.interventionOrExposure,
+            outcome: "",
+            studyPreference: .any,
+            includeAbstracts: request.includeAbstracts,
+            maxResults: request.maxResults,
+            maxCharacters: request.maxCharacters
+        )
+        queries.append(query(for: broadest))
+
+        return Array(NSOrderedSet(array: queries)) as? [String] ?? queries
     }
 
     static func rankedArticles(from articles: [PubMedArticle], for request: PubMedSearchRequest) -> [PubMedArticle] {
@@ -235,8 +292,16 @@ struct PubMedSearchTool: Tool {
         "(\(text.trimmingCharacters(in: .whitespacesAndNewlines)))"
     }
 
-    private func format(articles: [PubMedArticle], request: PubMedSearchRequest) -> String {
-        var outputLines = ["SEARCH QUERY: \(Self.query(for: request))", ""]
+    static func evidenceSummary(for bundle: PubMedEvidenceBundle) -> String {
+        format(articles: bundle.articles, query: bundle.query, request: bundle.request)
+    }
+
+    private static func format(
+        articles: [PubMedArticle],
+        query: String,
+        request: PubMedSearchRequest
+    ) -> String {
+        var outputLines = ["SEARCH QUERY: \(query)", ""]
 
         for (index, article) in articles.enumerated() {
             outputLines.append("SOURCE \(index + 1)")
@@ -270,16 +335,19 @@ struct PubMedSearchTool: Tool {
         return output.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private func validate(_ response: URLResponse) throws {
+    private static func validate(_ response: URLResponse) throws {
         guard let httpResponse = response as? HTTPURLResponse else {
             throw PubMedSearchError.invalidResponse
+        }
+        if httpResponse.statusCode == 429 {
+            throw PubMedSearchError.rateLimited
         }
         guard (200...299).contains(httpResponse.statusCode) else {
             throw PubMedSearchError.httpError(statusCode: httpResponse.statusCode)
         }
     }
 
-    private func recordSources(from articles: [PubMedArticle]) {
+    static func recordSources(from articles: [PubMedArticle]) {
         let sources = articles.compactMap { article -> PubMedToolStore.Source? in
             guard article.pmid.isEmpty == false, article.title.isEmpty == false else { return nil }
             let url = "https://pubmed.ncbi.nlm.nih.gov/\(article.pmid)/"
@@ -287,6 +355,23 @@ struct PubMedSearchTool: Tool {
         }
         Task { @MainActor in
             PubMedToolStore.shared.record(sources: sources)
+        }
+    }
+}
+
+struct PubMedEvidenceBundle: Hashable {
+    let request: PubMedSearchRequest
+    let query: String
+    let articles: [PubMedArticle]
+
+    var sources: [PubMedToolStore.Source] {
+        articles.compactMap { article in
+            guard article.pmid.isEmpty == false, article.title.isEmpty == false else { return nil }
+            return PubMedToolStore.Source(
+                title: article.title,
+                pmid: article.pmid,
+                url: "https://pubmed.ncbi.nlm.nih.gov/\(article.pmid)/"
+            )
         }
     }
 }
@@ -334,6 +419,26 @@ struct PubMedSearchRequest: Hashable {
         includeAbstracts = arguments.includeAbstracts ?? true
         maxResults = min(max(arguments.maxResults ?? 3, 1), 5)
         maxCharacters = max(arguments.maxCharacters ?? 6000, 1000)
+    }
+
+    init(
+        topic: String,
+        population: String,
+        interventionOrExposure: String,
+        outcome: String,
+        studyPreference: PubMedSearchTool.StudyPreference,
+        includeAbstracts: Bool,
+        maxResults: Int,
+        maxCharacters: Int
+    ) {
+        self.topic = topic
+        self.population = population
+        self.interventionOrExposure = interventionOrExposure
+        self.outcome = outcome
+        self.studyPreference = studyPreference
+        self.includeAbstracts = includeAbstracts
+        self.maxResults = maxResults
+        self.maxCharacters = maxCharacters
     }
 
     private static func termSet(from text: String) -> Set<String> {
@@ -480,12 +585,21 @@ private final class PubMedXMLParser: NSObject, XMLParserDelegate {
     }
 }
 
-private enum PubMedSearchError: LocalizedError {
+enum PubMedSearchError: LocalizedError {
+    case missingTopic
+    case noResults
+    case rateLimited
     case invalidResponse
     case httpError(statusCode: Int)
 
     var errorDescription: String? {
         switch self {
+        case .missingTopic:
+            "No medical topic provided."
+        case .noResults:
+            "No relevant PubMed results found."
+        case .rateLimited:
+            "PubMed is rate-limiting requests right now."
         case .invalidResponse:
             "Invalid response from PubMed."
         case .httpError(let statusCode):

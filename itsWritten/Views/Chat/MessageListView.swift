@@ -14,6 +14,11 @@ struct MessageListView: View {
     @State private var isAtBottom = true
 
     private let typingIndicatorID = "typing-indicator"
+    private var showsTypingIndicator: Bool {
+        guard isResponding else { return false }
+        guard let lastMessage = messages.last else { return true }
+        return lastMessage.isUser || lastMessage.content.isReallyEmpty
+    }
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -23,7 +28,7 @@ struct MessageListView: View {
                         MessageBubble(message: message)
                             .id(message.id)
                     }
-                    if isResponding {
+                    if showsTypingIndicator {
                         TypingIndicatorView()
                             .id(typingIndicatorID)
                     }
@@ -52,7 +57,7 @@ struct MessageListView: View {
     /// - Parameter proxy: The scroll view proxy used to perform the scroll.
     func scrollToBottomIfNeeded(proxy: ScrollViewProxy) {
         guard isAtBottom else { return }
-        if isResponding {
+        if showsTypingIndicator {
             proxy.scrollTo(typingIndicatorID, anchor: .bottom)
         } else if let lastMessage = messages.last {
             proxy.scrollTo(lastMessage.id, anchor: .bottom)
@@ -61,7 +66,7 @@ struct MessageListView: View {
 
     func updateIsAtBottom(_ newValue: AnyHashable?) {
         guard let newValue else { return }
-        if isResponding {
+        if showsTypingIndicator {
             isAtBottom = newValue == AnyHashable(typingIndicatorID)
         } else if let lastMessage = messages.last {
             isAtBottom = newValue == AnyHashable(lastMessage.id)
