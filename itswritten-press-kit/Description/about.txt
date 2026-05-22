@@ -1,0 +1,42 @@
+itsWritten
+==========
+
+itsWritten is a private journaling app built for people who want to write first and reflect second.
+
+  Capture thoughts, emotions, and daily notes in a clean writing space, then continue the conversation with Apple Intelligence in a dedicated chat view. The app is designed to feel calm, personal, and lightweight while keeping sensitive content front and center.
+
+What you can do:
+  • Write freely in a focused journal-first interface
+  • Get compassionate reflections and follow-up prompts
+  • Continue each entry in a saved chat thread
+  • Choose how responses appear with standard, streaming, or human-style pacing
+  • Revisit past conversations with built-in history
+  • Keep sensitive content more private with privacy-sensitive UI protections
+
+For health or biomedical questions, itsWritten can also surface PubMed-backed sources inside the chat flow so answers can be grounded in research when appropriate.
+
+Why people may like it:
+  • Feels more personal than a blank notes app
+  • More private than sending sensitive thoughts to a generic cloud chat
+  • Designed for reflection, not just productivity
+  • Combines emotional support style responses with optional research-backed answers
+
+If you want a private AI journal for reflection, writing, and thoughtful conversations, itsWritten is built for that.
+
+Important: itsWritten is not a doctor, therapist, or emergency service, and it is not meant to replace qualified medical or mental health care.
+If you or someone you know is in distress, at risk, or needs urgent help, seek immediate medical attention or contact local emergency services.
+
+Stay Safe :)
+
+---
+About the Developer
+Filippo Cilia is an indie creator working on small, focused software products. They build consistently and improve with each project, and try to build things that last. Filippo's latest app is itsWritten, which was released on February 27, 2026.
+
+---
+Press Contact
+Name: Filippo Cilia
+Email: cilia.filippo@icloud.com 
+
+Launch Date: February 27, 2026
+
+App Store: https://apps.apple.com/app/id6757445119
