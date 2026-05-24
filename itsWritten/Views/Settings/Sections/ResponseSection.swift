@@ -27,7 +27,12 @@ struct ResponseSection: View {
             Text("Response")
                 .padding(.top)
         } footer: {
-            Text("Temperature: Controls response randomness where 0 is random, 1 is deterministic.")
+            Text("""
+            Temperature: Controls response randomness where 0 is random, 1 is deterministic.
+            Standard: Generates the full response before displaying it.
+            Streaming: Displays the response word by word as it is generated.
+            Human: Displays the response character by character, mimicking natural typing.
+            """)
         }
     }
 }

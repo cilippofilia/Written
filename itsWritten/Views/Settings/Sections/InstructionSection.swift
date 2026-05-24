@@ -9,19 +9,20 @@ import SwiftUI
 
 struct InstructionSection: View {
     @Binding var configuration: ModelConfiguration
+    @FocusState private var isFocused: Bool
 
     var body: some View {
-        Section {
-            TextField(
-                "Instructions",
-                text: $configuration.instructions,
-                axis: .vertical
-            )
-            .lineLimit(12, reservesSpace: true)
-            .labelsHidden()
-        } header: {
-            Text("Instructions")
-                .padding(.top)
-        }
+        TextEditor(text: $configuration.instructions)
+            .contentMargins(16, for: .scrollContent)
+            .focused($isFocused)
+            .scrollIndicators(.hidden)
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") {
+                        isFocused = false
+                    }
+                }
+            }
     }
 }

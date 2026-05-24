@@ -70,10 +70,12 @@ enum SheetType: Identifiable, Equatable {
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
         case .settings(let config, let responseType):
-            ModelSettingsSheet(
-                configuration: config,
-                responseType: responseType
-            )
+            NavigationStack {
+                ModelSettingsSheet(
+                    configuration: config,
+                    responseType: responseType
+                )
+            }
             .background(.ultraThinMaterial)
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
