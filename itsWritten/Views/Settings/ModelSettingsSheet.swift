@@ -15,8 +15,8 @@ struct ModelSettingsSheet: View {
     var body: some View {
         Form {
             Section {
-                NavigationLink("Providers") {
-                    ProvidersView()
+                NavigationLink("Provider") {
+                    ProviderView()
                 }
                 NavigationLink("Instructions") {
                     InstructionSection(configuration: $configuration)
@@ -34,6 +34,8 @@ struct ModelSettingsSheet: View {
                 Button("Reset to Defaults", role: .destructive) {
                     showResetConfirmation = true
                 }
+            } footer: {
+                Text("Restores all model instructions and generation settings to their original values.")
             }
 
             AppInfoSection()
