@@ -30,6 +30,8 @@ struct ModelSettingsSheet: View {
                 Text("Changing these settings may result in unexpected, inaccurate, or lower quality responses. Only modify them if you understand the effect each value has on the model's behaviour.")
             }
 
+            AppInfoSection()
+
             Section {
                 Button("Reset to Defaults", role: .destructive) {
                     showResetConfirmation = true
@@ -37,8 +39,6 @@ struct ModelSettingsSheet: View {
             } footer: {
                 Text("Restores all model instructions and generation settings to their original values.")
             }
-
-            AppInfoSection()
         }
         .navigationTitle("Settings")
         .formStyle(.grouped)

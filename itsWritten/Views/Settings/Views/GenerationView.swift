@@ -15,6 +15,7 @@ struct GenerationView: View {
         Form {
             SamplingSection(configuration: $configuration)
             ResponseSection(configuration: $configuration, responseType: $responseType)
+            ToolsView()
         }
         .formStyle(.grouped)
         .navigationTitle("Generation")

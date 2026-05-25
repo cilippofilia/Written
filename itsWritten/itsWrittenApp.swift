@@ -30,6 +30,7 @@ struct WrittenApp: App {
                 isPrivacyShieldVisible = newValue == .inactive
             }
             .environment(PubMedToolStore.shared)
+            .environment(ClinicalTrialsToolStore.shared)
         }
         .modelContainer(for: [ChatThread.self, ChatMessage.self])
     }

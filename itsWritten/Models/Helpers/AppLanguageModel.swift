@@ -10,7 +10,10 @@ import FoundationModels
 /// Shared app-level configuration for SystemLanguageModel and sessions.
 enum AppLanguageModel {
     static let model = SystemLanguageModel(guardrails: .permissiveContentTransformations)
-    static let tools: [any Tool] = [PubMedSearchTool()]
+    static let tools: [any Tool] = [
+        PubMedSearchTool(),
+        ClinicalTrialsSearchTool()
+    ]
 
     static func session(instructions: String? = nil) -> LanguageModelSession {
         if let instructions, instructions.isReallyEmpty == false {
