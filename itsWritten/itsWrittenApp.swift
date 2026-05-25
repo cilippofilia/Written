@@ -31,6 +31,7 @@ struct WrittenApp: App {
             }
             .environment(PubMedToolStore.shared)
             .environment(ClinicalTrialsToolStore.shared)
+            .environment(OpenFDAToolStore.shared)
         }
         .modelContainer(for: [ChatThread.self, ChatMessage.self])
     }

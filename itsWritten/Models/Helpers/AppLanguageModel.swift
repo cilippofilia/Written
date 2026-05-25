@@ -12,7 +12,8 @@ enum AppLanguageModel {
     static let model = SystemLanguageModel(guardrails: .permissiveContentTransformations)
     static let tools: [any Tool] = [
         PubMedSearchTool(),
-        ClinicalTrialsSearchTool()
+        ClinicalTrialsSearchTool(),
+        OpenFDADrugTool()
     ]
 
     static func session(instructions: String? = nil) -> LanguageModelSession {

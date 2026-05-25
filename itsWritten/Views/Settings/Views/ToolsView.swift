@@ -37,7 +37,11 @@ private extension String {
     /// Converts a snake_case tool name into a human-readable title,
     /// handling known acronyms such as "pubmed" → "PubMed".
     var humanizedToolName: String {
-        let acronyms: [String: String] = ["pubmed": "PubMed", "clinicaltrials": "ClinicalTrials.gov"]
+        let acronyms: [String: String] = [
+            "pubmed": "PubMed",
+            "clinicaltrials": "ClinicalTrials.gov",
+            "openfda": "OpenFDA"
+        ]
         return split(separator: "_")
             .map { word in
                 let lower = word.lowercased()
