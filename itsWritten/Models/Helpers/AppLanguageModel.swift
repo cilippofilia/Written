@@ -13,7 +13,8 @@ enum AppLanguageModel {
     static let tools: [any Tool] = [
         PubMedSearchTool(),
         ClinicalTrialsSearchTool(),
-        OpenFDADrugTool()
+        OpenFDADrugTool(),
+        MedicalCalculatorTool()
     ]
 
     static func session(instructions: String? = nil) -> LanguageModelSession {
