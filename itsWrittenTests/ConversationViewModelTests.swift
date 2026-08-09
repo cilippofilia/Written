@@ -6,6 +6,7 @@
 //
 
 import FoundationModels
+import SwiftData
 import XCTest
 @testable import itsWritten
 
@@ -46,5 +47,60 @@ final class ConversationViewModelTests: XCTestCase {
         XCTAssertTrue(viewModel.messages.isEmpty)
         XCTAssertNil(viewModel.threadId)
         XCTAssertEqual(viewModel.title, "New Conversation")
+    }
+
+    func testIsRefusalMessageDetectsKnownRefusalPhrases() {
+        let viewModel = ConversationViewModel()
+
+        XCTAssertTrue(viewModel.isRefusalMessage("I'm sorry, but I can't help with that request."))
+        XCTAssertFalse(viewModel.isRefusalMessage("Here's a summary of the evidence you asked about."))
+    }
+
+    func testAppendInsertsNewThreadThenUpdatesOnSubsequentAppend() throws {
+        let schema = Schema([ChatThread.self, ChatMessage.self])
+        let configuration = SwiftData.ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [configuration])
+        let context = ModelContext(container)
+        let crossPromoSignal = CrossPromoSignal()
+
+        let viewModel = ConversationViewModel()
+        viewModel.configure(modelContext: context, pubMedStore: PubMedToolStore(), crossPromoSignal: crossPromoSignal)
+        viewModel.title = "Morning Pages"
+
+        viewModel.append(ChatMessage(content: "Hi", isUser: true))
+
+        var fetched = try context.fetch(FetchDescriptor<ChatThread>())
+        XCTAssertEqual(fetched.count, 1)
+        XCTAssertEqual(fetched.first?.messages.count, 1)
+        XCTAssertEqual(fetched.first?.title, "Morning Pages")
+        XCTAssertEqual(crossPromoSignal.count, 1)
+        XCTAssertEqual(viewModel.threadId, fetched.first?.id)
+
+        viewModel.append(ChatMessage(content: "Hello!", isUser: false))
+
+        fetched = try context.fetch(FetchDescriptor<ChatThread>())
+        XCTAssertEqual(fetched.count, 1, "a follow-up append should update the existing thread, not insert a second one")
+        XCTAssertEqual(fetched.first?.messages.count, 2)
+        XCTAssertEqual(crossPromoSignal.count, 1, "crossPromoSignal should only bump once, when the thread is first created")
+    }
+
+    func testResetThenAppendCreatesASeparateNewThread() throws {
+        let schema = Schema([ChatThread.self, ChatMessage.self])
+        let configuration = SwiftData.ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [configuration])
+        let context = ModelContext(container)
+
+        let viewModel = ConversationViewModel()
+        viewModel.configure(modelContext: context, pubMedStore: PubMedToolStore(), crossPromoSignal: CrossPromoSignal())
+        viewModel.title = "First Thread"
+        viewModel.append(ChatMessage(content: "Hi", isUser: true))
+
+        viewModel.reset()
+        viewModel.title = "Second Thread"
+        viewModel.append(ChatMessage(content: "Hello again", isUser: true))
+
+        let fetched = try context.fetch(FetchDescriptor<ChatThread>())
+        XCTAssertEqual(fetched.count, 2)
+        XCTAssertEqual(Set(fetched.map(\.title)), Set(["First Thread", "Second Thread"]))
     }
 }
