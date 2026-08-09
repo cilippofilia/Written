@@ -77,4 +77,5 @@ struct HomeContentView: View {
     .environment(HomeViewModel())
     .environment(CountdownViewModel())
     .environment(ConversationViewModel())
+    .environment(RemoveAdsStore())
 }
