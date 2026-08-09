@@ -7,6 +7,7 @@
 
 import FoundationModels
 import PrivateAds
+import SwiftData
 import SwiftUI
 
 struct HomeView: View {
@@ -16,25 +17,29 @@ struct HomeView: View {
     @Environment(CountdownViewModel.self) private var countDownViewModel
     @Environment(CrossPromoSignal.self) private var crossPromoSignal
     @Environment(RemoveAdsStore.self) private var removeAdsStore
+    @Environment(PubMedToolStore.self) private var pubMedStore
+    @Environment(\.modelContext) private var modelContext
 
     @State private var config = ModelConfiguration()
     @State private var responseType = ModelResponseType.standard
     @State private var presentedSheet: SheetType?
-    @State private var session = AppLanguageModel.session()
+    @State private var conversationViewModel = ConversationViewModel()
     @State private var showChatHistoryView = false
-    @State private var shouldSend = false
     @State private var interstitialAd: Ad?
     @State private var isInterstitialPending = false
 
     var body: some View {
         NavigationStack {
             HomeContentView(
-                shouldSend: $shouldSend,
                 config: $config,
-                responseType: $responseType,
-                session: session
+                responseType: $responseType
             )
             .toolbar {
+                if conversationViewModel.mode == .chatting {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("New Chat", systemImage: "plus", action: conversationViewModel.reset)
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     toolbarMenu
                 }
@@ -43,17 +48,12 @@ struct HomeView: View {
                 sheet.view
             }
             .onAppear {
-                session = AppLanguageModel.session(instructions: config.instructions)
-                // `prewarm` is a synchronous, non-async FoundationModels call that can block
-                // on the on-device model backend. Apple's own docs note it "does not guarantee
-                // the system loads your assets immediately", so it's safe to defer off the
-                // synchronous onAppear path — otherwise it can stall the MainActor run loop
-                // long enough to starve every other `.task` in this view's hierarchy (e.g. the
-                // cross-promo ad fetch never gets a chance to start).
-                let instructions = config.instructions
-                Task { @MainActor in
-                    session.prewarm(promptPrefix: .init(instructions))
-                }
+                conversationViewModel.configure(
+                    modelContext: modelContext,
+                    pubMedStore: pubMedStore,
+                    crossPromoSignal: crossPromoSignal
+                )
+                conversationViewModel.prewarmIdleSession(config: config)
             }
             .navigationDestination(isPresented: $showChatHistoryView) {
                 ChatHistoryView(
@@ -62,11 +62,12 @@ struct HomeView: View {
                 )
             }
         }
+        .environment(conversationViewModel)
         // A PrivateAds cross-promo ad every 3rd new chat started (see `CrossPromoSignal`,
-        // bumped from `ChatView.saveThreadOnDismiss`). The bump happens while the chat sheet
-        // is still mid-dismissal, and presenting a `fullScreenCover` from this view at that
-        // exact moment can no-op — so the bump only marks the ad as pending, and the actual
-        // fetch fires once `presentedSheet` has gone fully nil.
+        // bumped from `ConversationViewModel.persistCurrentTurn` when a brand-new thread is
+        // first saved). The interstitial waits for the user to return to the composer
+        // (`mode == .composing`) before showing, so it never interrupts an in-progress
+        // conversation.
         .fullScreenCover(item: $interstitialAd) { ad in
             AdView(advert: ad, config: .crossPromo) {
                 CrossPromoRemoveAdsInfoView()
@@ -76,8 +77,8 @@ struct HomeView: View {
             guard removeAdsStore.isAdsRemoved == false, newValue > 0, newValue.isMultiple(of: 3) else { return }
             isInterstitialPending = true
         }
-        .onChange(of: presentedSheet) { _, newValue in
-            guard newValue == nil, isInterstitialPending else { return }
+        .onChange(of: conversationViewModel.mode) { _, newMode in
+            guard newMode == .composing, isInterstitialPending else { return }
             isInterstitialPending = false
             Task { await refreshInterstitialAd() }
         }
@@ -130,4 +131,6 @@ struct HomeView: View {
         .environment(CountdownViewModel())
         .environment(CrossPromoSignal())
         .environment(RemoveAdsStore())
+        .environment(PubMedToolStore.shared)
+        .modelContainer(for: [ChatThread.self, ChatMessage.self], inMemory: true)
 }
