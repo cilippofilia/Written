@@ -37,7 +37,7 @@ struct HomeView: View {
             .toolbar {
                 if conversationViewModel.mode == .chatting {
                     ToolbarItem(placement: .topBarLeading) {
-                        Button("New Chat", systemImage: "plus", action: conversationViewModel.reset)
+                        Button("New Chat", systemImage: "plus", action: { conversationViewModel.reset(config: config) })
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {

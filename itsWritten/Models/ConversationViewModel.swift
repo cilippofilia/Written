@@ -29,6 +29,11 @@ final class ConversationViewModel {
     private(set) var session = AppLanguageModel.session()
     private(set) var isResponding = false
 
+    /// Bumped by `reset()` and `resume(thread:config:)`. Captured by in-flight
+    /// generation/title work so a stale Task from a superseded conversation can detect
+    /// it no longer owns the current state and stop before mutating it.
+    private(set) var generation = 0
+
     private var modelContext: ModelContext?
     private var pubMedStore: PubMedToolStore?
     private var crossPromoSignal: CrossPromoSignal?
@@ -50,6 +55,7 @@ final class ConversationViewModel {
     /// Builds a fresh idle session from `config` and prewarms it. Call once, from
     /// `HomeView.onAppear`.
     func prewarmIdleSession(config: ModelConfiguration) {
+        guard mode == .composing else { return }
         session = configuredSession(config: config)
         // `prewarm` is a synchronous, non-async FoundationModels call that can block
         // on the on-device model backend. Apple's own docs note it "does not guarantee
@@ -73,19 +79,23 @@ final class ConversationViewModel {
 
     /// Loads a previously saved thread into the conversation and switches to chat mode.
     func resume(thread: ChatThread, config: ModelConfiguration) {
+        generation += 1
         messages = Self.orderedMessages(from: thread.messages)
         title = thread.title
         threadId = thread.id
         session = buildSession(from: messages, config: config)
+        isResponding = false
         mode = .chatting
     }
 
     /// Clears the current conversation and returns to the composer.
-    func reset() {
+    func reset(config: ModelConfiguration) {
+        generation += 1
         messages = []
         title = "New Conversation"
         threadId = nil
         isResponding = false
+        session = configuredSession(config: config)
         mode = .composing
     }
 
@@ -149,6 +159,7 @@ extension ConversationViewModel {
     /// so an error here should not interrupt the user — it just leaves the
     /// "New Conversation" placeholder.
     func generateAndSetTitle(from prompt: String) async {
+        let myGeneration = generation
         let instructions = """
         Summarize the prompt into a short title of 5 to 8 words.
         DO NOT use tools, lists, markdown, numbering, or quotes.
@@ -157,6 +168,7 @@ extension ConversationViewModel {
         let titleSession = AppLanguageModel.sessionWithoutTools(instructions: instructions)
 
         guard let generated = try? await lastStreamedContent(from: titleSession, prompt: prompt) else { return }
+        guard myGeneration == generation else { return }
 
         let normalized = generated
             .replacing("\n", with: " ")
@@ -195,22 +207,25 @@ extension ConversationViewModel {
 
         session = compactedSessionFromMessages(config: config, excludingLastAssistant: false)
 
+        let sendGeneration = generation
         Task {
             switch responseType {
-            case .standard: await generateStandardResponse(for: resolvedPrompt, config: config)
-            case .streaming: await generateStreamingResponse(for: resolvedPrompt, config: config)
-            case .human: await generateHumanResponse(for: resolvedPrompt, config: config)
+            case .standard: await generateStandardResponse(for: resolvedPrompt, config: config, generation: sendGeneration)
+            case .streaming: await generateStreamingResponse(for: resolvedPrompt, config: config, generation: sendGeneration)
+            case .human: await generateHumanResponse(for: resolvedPrompt, config: config, generation: sendGeneration)
             }
         }
     }
 
     /// Generates a response using the standard (non-streaming) approach. Handles
     /// context window overflow by compacting the session and retrying.
-    private func generateStandardResponse(for prompt: String, config: ModelConfiguration) async {
+    private func generateStandardResponse(for prompt: String, config: ModelConfiguration, generation: Int) async {
+        guard generation == self.generation else { return }
         isResponding = true
-        defer { isResponding = false }
+        defer { if generation == self.generation { isResponding = false } }
 
         let response = await generateResponseWithRecovery(for: prompt, config: config)
+        guard generation == self.generation else { return }
         if let response {
             append(makeAssistantMessage(from: response))
         } else {
@@ -220,9 +235,10 @@ extension ConversationViewModel {
 
     /// Generates a response using streaming, updating the UI as tokens arrive. Handles
     /// context window overflow by compacting and retrying.
-    private func generateStreamingResponse(for prompt: String, config: ModelConfiguration) async {
+    private func generateStreamingResponse(for prompt: String, config: ModelConfiguration, generation: Int) async {
+        guard generation == self.generation else { return }
         isResponding = true
-        defer { isResponding = false }
+        defer { if generation == self.generation { isResponding = false } }
 
         let messageId = UUID()
         let timestamp = Date()
@@ -231,12 +247,14 @@ extension ConversationViewModel {
 
         do {
             let preparedRequest = await prepareModelRequest(for: prompt)
+            guard generation == self.generation else { return }
             switch preparedRequest {
             case .assistantResponse(let response):
                 append(makeAssistantMessage(from: response, id: messageId, timestamp: timestamp))
                 return
             case .prompt(let preparedPrompt):
                 for try await partial in session.streamResponse(to: preparedPrompt, options: config.generationOptions) {
+                    guard generation == self.generation else { return }
                     streamedContent = partial.content
 
                     withAnimation(.default) {
@@ -261,8 +279,10 @@ extension ConversationViewModel {
                     }
                 }
             }
+            guard generation == self.generation else { return }
             let response = buildAssistantResponse(from: streamedContent)
             if isRefusalMessage(response.content), let recovered = await recoverAfterFailure(for: prompt, config: config) {
+                guard generation == self.generation else { return }
                 replaceStreamedMessage(
                     at: &messageIndex,
                     with: makeAssistantMessage(from: recovered, id: messageId, timestamp: timestamp)
@@ -279,7 +299,9 @@ extension ConversationViewModel {
                 )
             }
         } catch {
+            guard generation == self.generation else { return }
             if let recovered = await recoverAfterFailure(for: prompt, config: config) {
+                guard generation == self.generation else { return }
                 replaceStreamedMessage(
                     at: &messageIndex,
                     with: makeAssistantMessage(from: recovered, id: messageId, timestamp: timestamp)
@@ -303,30 +325,38 @@ extension ConversationViewModel {
     }
 
     /// Generates a response with simulated human-like typing delays.
-    private func generateHumanResponse(for prompt: String, config: ModelConfiguration) async {
+    private func generateHumanResponse(for prompt: String, config: ModelConfiguration, generation: Int) async {
+        guard generation == self.generation else { return }
         let startTime = ContinuousClock.now
 
         do {
             try await Task.sleep(for: .seconds(2))
+            guard generation == self.generation else { return }
             isResponding = true
 
             guard let response = await generateResponseWithRecovery(for: prompt, config: config) else {
+                guard generation == self.generation else { return }
                 appendRecoveryFailureMessage()
                 isResponding = false
                 return
             }
+            guard generation == self.generation else { return }
             let simulatedTime = Duration.seconds(1 + Double(response.content.count) * 0.02)
 
             if ContinuousClock.now - startTime < simulatedTime {
                 try await Task.sleep(for: simulatedTime - (.now - startTime))
             }
 
+            guard generation == self.generation else { return }
             append(makeAssistantMessage(from: response))
         } catch {
+            guard generation == self.generation else { return }
             appendErrorMessage()
         }
 
-        isResponding = false
+        if generation == self.generation {
+            isResponding = false
+        }
     }
 
     private func appendErrorMessage() {
@@ -570,8 +600,8 @@ extension ConversationViewModel {
     /// the existing one on every message after that. Called after every `append` and
     /// after every finalized streamed message, so the conversation is durable as it
     /// happens rather than only when the screen is dismissed.
-    private func persistCurrentTurn() {
-        guard let modelContext else { return }
+    func persistCurrentTurn() {
+        guard let modelContext, messages.isEmpty == false else { return }
 
         if let threadId {
             let fetch = FetchDescriptor<ChatThread>(predicate: #Predicate { $0.id == threadId })

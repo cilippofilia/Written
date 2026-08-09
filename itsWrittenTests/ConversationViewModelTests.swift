@@ -41,7 +41,7 @@ final class ConversationViewModelTests: XCTestCase {
         let thread = ChatThread(title: "Greeting", messages: [ChatMessage(content: "Hi", isUser: true)])
         viewModel.resume(thread: thread, config: ModelConfiguration())
 
-        viewModel.reset()
+        viewModel.reset(config: ModelConfiguration())
 
         XCTAssertEqual(viewModel.mode, .composing)
         XCTAssertTrue(viewModel.messages.isEmpty)
@@ -95,12 +95,53 @@ final class ConversationViewModelTests: XCTestCase {
         viewModel.title = "First Thread"
         viewModel.append(ChatMessage(content: "Hi", isUser: true))
 
-        viewModel.reset()
+        viewModel.reset(config: ModelConfiguration())
         viewModel.title = "Second Thread"
         viewModel.append(ChatMessage(content: "Hello again", isUser: true))
 
         let fetched = try context.fetch(FetchDescriptor<ChatThread>())
         XCTAssertEqual(fetched.count, 2)
         XCTAssertEqual(Set(fetched.map(\.title)), Set(["First Thread", "Second Thread"]))
+    }
+
+    func testResetIncrementsGenerationRebuildsSessionAndClearsIsResponding() {
+        let viewModel = ConversationViewModel()
+        let thread = ChatThread(title: "Greeting", messages: [ChatMessage(content: "Hi", isUser: true)])
+        viewModel.resume(thread: thread, config: ModelConfiguration())
+        let generationAfterResume = viewModel.generation
+        let sessionAfterResume = viewModel.session
+
+        viewModel.reset(config: ModelConfiguration())
+
+        XCTAssertEqual(viewModel.generation, generationAfterResume + 1)
+        XCTAssertFalse(viewModel.isResponding)
+        XCTAssertFalse(viewModel.session === sessionAfterResume, "reset should rebuild the session, not reuse the resumed thread's session")
+    }
+
+    func testResumeIncrementsGenerationAndClearsIsResponding() {
+        let viewModel = ConversationViewModel()
+        let generationBefore = viewModel.generation
+        let thread = ChatThread(title: "Greeting", messages: [ChatMessage(content: "Hi", isUser: true)])
+
+        viewModel.resume(thread: thread, config: ModelConfiguration())
+
+        XCTAssertEqual(viewModel.generation, generationBefore + 1)
+        XCTAssertFalse(viewModel.isResponding)
+    }
+
+    func testPersistCurrentTurnDoesNothingWithEmptyMessages() throws {
+        let schema = Schema([ChatThread.self, ChatMessage.self])
+        let configuration = SwiftData.ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [configuration])
+        let context = ModelContext(container)
+
+        let viewModel = ConversationViewModel()
+        viewModel.configure(modelContext: context, pubMedStore: PubMedToolStore(), crossPromoSignal: CrossPromoSignal())
+        viewModel.title = "Stale Title"
+
+        viewModel.persistCurrentTurn()
+
+        let fetched = try context.fetch(FetchDescriptor<ChatThread>())
+        XCTAssertTrue(fetched.isEmpty, "persisting with no messages should not create a thread")
     }
 }
