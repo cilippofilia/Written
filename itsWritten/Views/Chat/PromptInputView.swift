@@ -22,10 +22,6 @@ struct PromptInputView: View {
         HStack(spacing: 12) {
             TextField(placeholder, text: $text, axis: .vertical)
                 .textFieldStyle(.plain)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .background(Color.secondary.opacity(0.1))
-                .clipShape(.rect(cornerRadius: 20))
                 .lineLimit(1...5)
                 .onSubmit(onSubmit)
 
@@ -38,7 +34,12 @@ struct PromptInputView: View {
                 .font(.title)
                 .disabled(text.isReallyEmpty || isDisabled)
         }
-        .padding()
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .glassEffect(.regular.interactive(), in: .capsule)
+        .padding(.horizontal)
+        .padding(.top, 8)
+        .padding(.bottom, 8)
     }
 }
 

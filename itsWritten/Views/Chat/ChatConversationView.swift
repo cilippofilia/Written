@@ -17,12 +17,11 @@ struct ChatConversationView: View {
     @State private var input = ""
 
     var body: some View {
-        VStack(spacing: 0) {
-            MessageListView(
-                messages: viewModel.messages,
-                isResponding: viewModel.isResponding
-            )
-
+        MessageListView(
+            messages: viewModel.messages,
+            isResponding: viewModel.isResponding
+        )
+        .safeAreaInset(edge: .bottom) {
             PromptInputView(
                 text: $input,
                 placeholder: homeViewModel.placeholderText,
