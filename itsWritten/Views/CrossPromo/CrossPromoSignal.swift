@@ -5,7 +5,7 @@
 
 import Foundation
 
-/// Bumped whenever a brand-new chat thread is saved (see `ChatView.saveThreadOnDismiss`) so
+/// Bumped whenever a brand-new chat thread is saved (see `ConversationViewModel.persistCurrentTurn`) so
 /// `HomeView` can show a PrivateAds cross-promo interstitial every 3rd bump.
 @MainActor
 @Observable
