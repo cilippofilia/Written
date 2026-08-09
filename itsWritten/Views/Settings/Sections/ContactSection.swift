@@ -16,6 +16,7 @@ struct ContactSection: View {
     @State private var showOptions = false
 
     private let supportEmail = "cilia.filippo.dev@gmail.com"
+    private let productURL = URL(string: "https://apps.apple.com/app/id6757445119")!
     private let reviewURL = URL(string: "https://apps.apple.com/app/id6757445119?action=write-review")!
 
     var body: some View {
@@ -52,6 +53,11 @@ struct ContactSection: View {
                     }
                 }
             }
+
+            ShareLink(item: productURL) {
+                Label("Share the app", systemImage: "square.and.arrow.up")
+            }
+            .buttonStyle(.plain)
         } header: {
             Text("Contacts")
         }
