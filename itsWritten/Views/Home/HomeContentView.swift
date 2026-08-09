@@ -45,13 +45,22 @@ struct HomeContentView: View {
             }
         }
         .safeAreaInset(edge: .bottom) {
-            HomeFooterView(
-                text: text,
-                isResponding: session.isResponding,
-                sendAction: {
-                    shouldSend = true
+            VStack(spacing: 0) {
+                // Hidden while composing: keeps the ad out of the way of the keyboard, and
+                // avoids reasoning about how an ad's own internal animations interact with
+                // the keyboard-driven layout of this safeAreaInset.
+                if isFocused == false {
+                    CrossPromoBannerView()
                 }
-            )
+
+                HomeFooterView(
+                    text: text,
+                    isResponding: session.isResponding,
+                    sendAction: {
+                        shouldSend = true
+                    }
+                )
+            }
         }
         .sheet(item: $presentedSheet) { sheet in
             sheet.view
@@ -108,7 +117,7 @@ extension HomeContentView {
             )
             text = ""
         } catch let error as LanguageModelSession.GenerationError {
-            activeAlert = createAlert(from: error)
+            activeAlert = .aiGenerationAlert(for: error)
         } catch {
             activeAlert = .aiGeneration(
                 title: "Response Error",
@@ -141,35 +150,6 @@ extension HomeContentView {
         let finalTitle = clipped.isEmpty ? "New Conversation" : clipped
         return finalTitle
     }
-
-    @MainActor
-    private func createAlert(from error: LanguageModelSession.GenerationError) -> AlertType {
-        var title = "Response Error"
-        var message = error.localizedDescription
-
-        switch error {
-        case .guardrailViolation(let context):
-            title = "Guardrail Violation"
-            message = context.debugDescription
-        case .decodingFailure(let context):
-            title = "Decoding Failure"
-            message = context.debugDescription
-        case .rateLimited(let context):
-            title = "Rate Limited"
-            message = context.debugDescription
-        default:
-            break
-        }
-
-        if let recoverySuggestion = error.recoverySuggestion {
-            message += "\n\n\(recoverySuggestion)"
-            if let helpAnchor = error.helpAnchor {
-                message += "\(helpAnchor)"
-            }
-        }
-
-        return .aiGeneration(title: title, message: message)
-    }
 }
 
 #Preview {
@@ -181,4 +161,5 @@ extension HomeContentView {
     )
     .environment(HomeViewModel())
     .environment(CountdownViewModel())
+    .environment(RemoveAdsStore())
 }

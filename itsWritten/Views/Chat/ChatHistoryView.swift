@@ -30,6 +30,9 @@ struct ChatHistoryView: View {
                         #endif
                 }
             }
+            .safeAreaInset(edge: .bottom) {
+                CrossPromoBannerView()
+            }
             .navigationTitle("History")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -147,5 +150,6 @@ struct ChatHistoryView: View {
         config: .constant(ModelConfiguration()),
         responseType: .constant(.standard)
     )
+    .environment(RemoveAdsStore())
     .modelContainer(for: [ChatThread.self, ChatMessage.self], inMemory: true)
 }

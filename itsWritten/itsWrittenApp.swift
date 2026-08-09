@@ -12,6 +12,8 @@ import SwiftData
 struct WrittenApp: App {
     @Environment(\.scenePhase) private var scenePhase
     @State private var isPrivacyShieldVisible = false
+    @State private var removeAdsStore = RemoveAdsStore()
+    @State private var crossPromoSignal = CrossPromoSignal()
 
     var body: some Scene {
         WindowGroup {
@@ -32,6 +34,8 @@ struct WrittenApp: App {
             .environment(PubMedToolStore.shared)
             .environment(ClinicalTrialsToolStore.shared)
             .environment(OpenFDAToolStore.shared)
+            .environment(removeAdsStore)
+            .environment(crossPromoSignal)
         }
         .modelContainer(for: [ChatThread.self, ChatMessage.self])
     }

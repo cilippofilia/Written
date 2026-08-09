@@ -32,6 +32,8 @@ struct ModelSettingsSheet: View {
 
             AppInfoSection()
 
+            ContactSection()
+
             Section {
                 Button("Reset to Defaults", role: .destructive) {
                     showResetConfirmation = true

@@ -33,8 +33,8 @@ final class ChatMessage: Identifiable {
     var content: String
     var isUser: Bool
     var timestamp: Date
-    var toolNames: [String]
-    var toolSources: [ChatMessageSource]
+    var toolNames: [String] = []
+    var toolSources: [ChatMessageSource] = []
 
     init(
         id: UUID = UUID(),

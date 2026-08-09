@@ -13,6 +13,7 @@ struct ChatView: View {
     @Environment(HomeViewModel.self) private var viewModel
     @Environment(\.modelContext) private var modelContext
     @Environment(PubMedToolStore.self) private var pubMedStore
+    @Environment(CrossPromoSignal.self) private var crossPromoSignal
 
     @Binding var configuration: ModelConfiguration
 
@@ -557,6 +558,7 @@ struct ChatView: View {
                 lastUpdated: Date()
             )
             modelContext.insert(thread)
+            crossPromoSignal.bump()
         }
         try? modelContext.save()
     }
@@ -764,5 +766,6 @@ enum MedicalPromptAnalyzer {
     }
     .environment(HomeViewModel())
     .environment(PubMedToolStore.shared)
+    .environment(CrossPromoSignal())
     .modelContainer(for: [ChatThread.self, ChatMessage.self], inMemory: true)
 }

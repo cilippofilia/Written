@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		E37A0CB5FD5A50DDDAA7220E /* PrivateAds in Frameworks */ = {isa = PBXBuildFile; productRef = 593A9540A8F7F15CE05FF14F /* PrivateAds */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		18CA90512F129D5C007FAA4B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -19,6 +23,7 @@
 /* Begin PBXFileReference section */
 		18A488EE2E68BD5F00A87380 /* itsWritten.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = itsWritten.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		18CA904D2F129D5C007FAA4B /* itsWrittenTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = itsWrittenTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		F74C98C8F49A4A78BDBAE173 /* itsWritten.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = itsWritten.storekit; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -52,6 +57,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E37A0CB5FD5A50DDDAA7220E /* PrivateAds in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -70,6 +76,7 @@
 			children = (
 				18A488F02E68BD5F00A87380 /* itsWritten */,
 				9F1C0A8B3C7D4E1F00AA1111 /* itsWrittenTests */,
+				F74C98C8F49A4A78BDBAE173 /* itsWritten.storekit */,
 				18A488EF2E68BD5F00A87380 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -104,6 +111,7 @@
 			);
 			name = itsWritten;
 			packageProductDependencies = (
+				593A9540A8F7F15CE05FF14F /* PrivateAds */,
 			);
 			productName = itsWritten;
 			productReference = 18A488EE2E68BD5F00A87380 /* itsWritten.app */;
@@ -160,6 +168,9 @@
 			);
 			mainGroup = 18A488E52E68BD5F00A87380;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				7225408F94A3DE33FED69C64 /* XCRemoteSwiftPackageReference "PrivateAds" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 18A488EF2E68BD5F00A87380 /* Products */;
 			projectDirPath = "";
@@ -532,6 +543,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		7225408F94A3DE33FED69C64 /* XCRemoteSwiftPackageReference "PrivateAds" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/cilippofilia/PrivateAds.git";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		593A9540A8F7F15CE05FF14F /* PrivateAds */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7225408F94A3DE33FED69C64 /* XCRemoteSwiftPackageReference "PrivateAds" */;
+			productName = PrivateAds;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 18A488E62E68BD5F00A87380 /* Project object */;
 }
