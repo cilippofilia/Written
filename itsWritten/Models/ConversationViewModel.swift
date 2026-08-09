@@ -288,6 +288,7 @@ extension ConversationViewModel {
                     with: makeAssistantMessage(from: recovered, id: messageId, timestamp: timestamp)
                 )
             } else if isRefusalMessage(response.content) {
+                guard generation == self.generation else { return }
                 replaceStreamedMessage(
                     at: &messageIndex,
                     with: ChatMessage(id: messageId, content: recoveryFailureMessage, isUser: false, timestamp: timestamp)
@@ -307,6 +308,7 @@ extension ConversationViewModel {
                     with: makeAssistantMessage(from: recovered, id: messageId, timestamp: timestamp)
                 )
             } else {
+                guard generation == self.generation else { return }
                 replaceStreamedMessage(
                     at: &messageIndex,
                     with: ChatMessage(id: messageId, content: recoveryFailureMessage, isUser: false, timestamp: timestamp)
