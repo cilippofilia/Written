@@ -12,8 +12,10 @@ import SwiftUI
 
 struct ContactSection: View {
     @Environment(\.openURL) private var openURL
+    @Environment(RemoveAdsStore.self) private var removeAdsStore
 
     @State private var showOptions = false
+    @State private var showRemoveAdsPaywall = false
 
     private let supportEmail = "cilia.filippo.dev@gmail.com"
     private let productURL = URL(string: "https://apps.apple.com/app/id6757445119")!
@@ -21,6 +23,22 @@ struct ContactSection: View {
 
     var body: some View {
         Section {
+            Button {
+                showRemoveAdsPaywall = true
+            } label: {
+                Label {
+                    Text(removeAdsStore.isAdsRemoved ? "Ads Removed" : "Remove Ads")
+                } icon: {
+                    Image(systemName: removeAdsStore.isAdsRemoved ? "checkmark.seal.fill" : "nosign")
+                        .foregroundStyle(.red)
+                }
+            }
+            .buttonStyle(.plain)
+            .sheet(isPresented: $showRemoveAdsPaywall) {
+                CrossPromoRemoveAdsInfoView()
+                    .presentationDetents([.medium])
+            }
+
             Button {
                 openURL(reviewURL)
             } label: {
@@ -79,4 +97,5 @@ struct ContactSection: View {
     Form {
         ContactSection()
     }
+    .environment(RemoveAdsStore())
 }
